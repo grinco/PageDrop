@@ -11,7 +11,7 @@ async function main(): Promise<void> {
   const auth = createOAuthClient();
   const config = loadGoogleConfigFromEnv();
   const adapter = new GoogleAdapter(
-    new GoogleDriveClient(auth),
+    new GoogleDriveClient(auth, config.domain),
     config,
     new GoogleSlidesClient(auth),
   );

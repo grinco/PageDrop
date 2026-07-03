@@ -26,8 +26,11 @@ function toDriveFile(f: drive_v3.Schema$File): DriveFile {
 export class GoogleDriveClient implements DriveClient {
   private readonly drive: drive_v3.Drive;
 
-  constructor(auth: OAuth2Client) {
+  private readonly domain?: string;
+
+  constructor(auth: OAuth2Client, domain?: string) {
     this.drive = google.drive({ version: "v3", auth });
+    this.domain = domain;
   }
 
   async ensureFolder(name: string): Promise<string> {
@@ -71,7 +74,7 @@ export class GoogleDriveClient implements DriveClient {
   }
 
   async setDomainLinkSharing(id: string): Promise<void> {
-    const domain = process.env.PAGEDROP_DOMAIN;
+    const domain = this.domain;
     await this.drive.permissions.create({
       fileId: id,
       requestBody: domain

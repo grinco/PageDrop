@@ -15,6 +15,20 @@ describe("GoogleAdapter — doc", () => {
     expect(res.viewUrl).toBeUndefined();
     expect(drive.shared.has("file-1")).toBe(true);
   });
+
+  it("reports public sharing when no domain is configured", async () => {
+    const drive = new FakeDriveClient();
+    const adapter = new GoogleAdapter(drive, config);
+    const res = await adapter.publish({ type: "doc", title: "Q3 Report", content: "# Hi\n\ntext" });
+    expect(res.sharing).toBe("public");
+  });
+
+  it("reports domain sharing when a domain is configured", async () => {
+    const drive = new FakeDriveClient();
+    const adapter = new GoogleAdapter(drive, { ...config, domain: "example.com" });
+    const res = await adapter.publish({ type: "doc", title: "Q3 Report", content: "# Hi\n\ntext" });
+    expect(res.sharing).toBe("domain");
+  });
 });
 
 describe("GoogleAdapter — page", () => {
@@ -25,6 +39,20 @@ describe("GoogleAdapter — page", () => {
     expect(res.viewUrl).toBe("https://script.google.com/exec?id=file-1");
     expect(res.editUrl).toBeUndefined();
     expect(drive.shared.has("file-1")).toBe(true);
+  });
+
+  it("reports public sharing when no domain is configured", async () => {
+    const drive = new FakeDriveClient();
+    const adapter = new GoogleAdapter(drive, config);
+    const res = await adapter.publish({ type: "page", title: "Dashboard", content: "<h1>x</h1>" });
+    expect(res.sharing).toBe("public");
+  });
+
+  it("reports domain sharing when a domain is configured", async () => {
+    const drive = new FakeDriveClient();
+    const adapter = new GoogleAdapter(drive, { ...config, domain: "example.com" });
+    const res = await adapter.publish({ type: "page", title: "Dashboard", content: "<h1>x</h1>" });
+    expect(res.sharing).toBe("domain");
   });
 });
 
@@ -37,6 +65,22 @@ describe("GoogleAdapter — deck", () => {
     expect(res.viewUrl).toBe("https://script.google.com/exec?id=file-1");
     expect(res.editUrl).toContain("docs.google.com/presentation");
     expect(slides.created[0].viewUrl).toBe("https://script.google.com/exec?id=file-1");
+  });
+
+  it("reports public sharing when no domain is configured", async () => {
+    const drive = new FakeDriveClient();
+    const slides = new FakeSlidesClient();
+    const adapter = new GoogleAdapter(drive, config, slides);
+    const res = await adapter.publish({ type: "deck", title: "Kickoff", content: "<section>1</section>" });
+    expect(res.sharing).toBe("public");
+  });
+
+  it("reports domain sharing when a domain is configured", async () => {
+    const drive = new FakeDriveClient();
+    const slides = new FakeSlidesClient();
+    const adapter = new GoogleAdapter(drive, { ...config, domain: "example.com" }, slides);
+    const res = await adapter.publish({ type: "deck", title: "Kickoff", content: "<section>1</section>" });
+    expect(res.sharing).toBe("domain");
   });
 
   it("still succeeds when Slides creation fails (best-effort)", async () => {
