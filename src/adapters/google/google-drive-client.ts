@@ -10,6 +10,10 @@ import {
 
 const FIELDS = "id, name, mimeType, webViewLink";
 
+export function escapeDriveQueryValue(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
 function toDriveFile(f: drive_v3.Schema$File): DriveFile {
   return {
     id: f.id ?? "",
@@ -27,7 +31,7 @@ export class GoogleDriveClient implements DriveClient {
   }
 
   async ensureFolder(name: string): Promise<string> {
-    const q = `name='${name.replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+    const q = `name='${escapeDriveQueryValue(name)}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
     const found = await this.drive.files.list({ q, fields: "files(id)", pageSize: 1 });
     const existing = found.data.files?.[0]?.id;
     if (existing) return existing;
@@ -86,7 +90,7 @@ export class GoogleDriveClient implements DriveClient {
   }
 
   async searchFolder(folderId: string, query: string): Promise<DriveFile[]> {
-    const escaped = query.replace(/'/g, "\\'");
+    const escaped = escapeDriveQueryValue(query);
     const res = await this.drive.files.list({
       q: `'${folderId}' in parents and trashed=false and (name contains '${escaped}' or fullText contains '${escaped}')`,
       fields: `files(${FIELDS})`,
