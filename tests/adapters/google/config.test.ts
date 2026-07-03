@@ -28,6 +28,20 @@ describe("loadGoogleConfigFromEnv", () => {
     expect(config.folderName).toBe("MyFolder");
     expect(config.rendererBaseUrl).toBe("https://script.google.com/exec");
   });
+
+  it("sets domain from PAGEDROP_DOMAIN when present", () => {
+    vi.stubEnv("PAGEDROP_RENDERER_URL", "https://script.google.com/exec");
+    vi.stubEnv("PAGEDROP_DOMAIN", "example.com");
+    const config = loadGoogleConfigFromEnv();
+    expect(config.domain).toBe("example.com");
+  });
+
+  it("leaves domain undefined when PAGEDROP_DOMAIN is unset", () => {
+    vi.stubEnv("PAGEDROP_RENDERER_URL", "https://script.google.com/exec");
+    vi.stubEnv("PAGEDROP_DOMAIN", undefined);
+    const config = loadGoogleConfigFromEnv();
+    expect(config.domain).toBeUndefined();
+  });
 });
 
 describe("createOAuthClient", () => {

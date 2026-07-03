@@ -19,7 +19,11 @@ function describeResult(kind: string, title: string, r: PublishResult): string {
   const lines = [`Published ${kind}: "${title}".`];
   if (r.viewUrl) lines.push(`View: ${r.viewUrl}`);
   if (r.editUrl) lines.push(`Edit: ${r.editUrl}`);
-  lines.push("Shared with anyone in your organization who has the link.");
+  if (r.sharing === "domain") {
+    lines.push("Shared with anyone in your organization who has the link.");
+  } else if (r.sharing === "public") {
+    lines.push("Shared publicly — anyone with the link can view.");
+  }
   return lines.join("\n");
 }
 

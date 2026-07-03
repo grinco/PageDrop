@@ -3,12 +3,13 @@ import type { Artifact, ArtifactRef, Publisher, PublishResult, SharingScope } fr
 export class FakePublisher implements Publisher {
   public published: { artifact: Artifact; scope: SharingScope }[] = [];
   public updated: { id: string; content: string }[] = [];
+  public sharing: PublishResult["sharing"] = "domain";
   private seq = 0;
 
   async publish(artifact: Artifact, scope: SharingScope = "domain"): Promise<PublishResult> {
     this.seq += 1;
     this.published.push({ artifact, scope });
-    return { id: `file-${this.seq}`, viewUrl: "https://view", editUrl: "https://edit" };
+    return { id: `file-${this.seq}`, viewUrl: "https://view", editUrl: "https://edit", sharing: this.sharing };
   }
   async update(id: string, content: string): Promise<PublishResult> {
     this.updated.push({ id, content });

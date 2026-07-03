@@ -113,6 +113,7 @@ Once connected, just talk to Claude naturally:
 - No version history or analytics.
 - External/public sharing is not the default — links are shared within your
   Workspace domain (or "anyone with the link" if `PAGEDROP_DOMAIN` is unset).
+- `pagedrop_list`/`pagedrop_search` return at most 100 items (no pagination yet).
 
 ## Extending / other backends
 

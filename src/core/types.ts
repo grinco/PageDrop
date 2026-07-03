@@ -13,6 +13,7 @@ export interface PublishResult {
   id: string;
   viewUrl?: string;
   editUrl?: string;
+  sharing?: "domain" | "public";
 }
 
 export interface ArtifactRef {

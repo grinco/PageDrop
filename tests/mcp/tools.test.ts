@@ -38,4 +38,22 @@ describe("registerTools", () => {
     expect(out.content[0].type).toBe("text");
     expect(out.content[0].text).toContain("https://edit");
   });
+
+  it("describes public sharing accurately", async () => {
+    const { host, handlers } = makeHost();
+    const publisher = new FakePublisher();
+    publisher.sharing = "public";
+    registerTools(host, new PublishService(publisher));
+    const out = await handlers["pagedrop_publish_doc"]({ title: "R", markdown: "# hi" });
+    expect(out.content[0].text).toContain("publicly");
+  });
+
+  it("describes domain sharing accurately", async () => {
+    const { host, handlers } = makeHost();
+    const publisher = new FakePublisher();
+    publisher.sharing = "domain";
+    registerTools(host, new PublishService(publisher));
+    const out = await handlers["pagedrop_publish_doc"]({ title: "R", markdown: "# hi" });
+    expect(out.content[0].text).toContain("organization");
+  });
 });

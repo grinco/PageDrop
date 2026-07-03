@@ -31,7 +31,11 @@ export class GoogleAdapter implements Publisher {
         convertToGoogleDoc: true,
       });
       await this.applySharing(file.id, scope);
-      return { id: file.id, editUrl: file.webViewLink };
+      return {
+        id: file.id,
+        editUrl: file.webViewLink,
+        sharing: this.config.domain ? "domain" : "public",
+      };
     }
 
     if (artifact.type === "page") {
@@ -43,7 +47,11 @@ export class GoogleAdapter implements Publisher {
         parents: [parent],
       });
       await this.applySharing(file.id, scope);
-      return { id: file.id, viewUrl: buildViewUrl(this.config.rendererBaseUrl, file.id) };
+      return {
+        id: file.id,
+        viewUrl: buildViewUrl(this.config.rendererBaseUrl, file.id),
+        sharing: this.config.domain ? "domain" : "public",
+      };
     }
 
     if (artifact.type === "deck") {
@@ -65,7 +73,12 @@ export class GoogleAdapter implements Publisher {
           editUrl = undefined; // best-effort; rendered deck is the deliverable
         }
       }
-      return { id: file.id, viewUrl, editUrl };
+      return {
+        id: file.id,
+        viewUrl,
+        editUrl,
+        sharing: this.config.domain ? "domain" : "public",
+      };
     }
 
     throw new Error(`unsupported artifact type: ${artifact.type}`);

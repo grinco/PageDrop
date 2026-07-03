@@ -3,6 +3,7 @@ import { OAuth2Client } from "google-auth-library";
 export interface GoogleConfig {
   folderName: string;
   rendererBaseUrl: string;
+  domain?: string;
 }
 
 export function buildViewUrl(base: string, fileId: string): string {
@@ -19,6 +20,7 @@ export function loadGoogleConfigFromEnv(): GoogleConfig {
   return {
     folderName: process.env.PAGEDROP_FOLDER_NAME ?? "PageDrop",
     rendererBaseUrl,
+    domain: process.env.PAGEDROP_DOMAIN,
   };
 }
 
