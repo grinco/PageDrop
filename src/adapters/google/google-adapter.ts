@@ -1,7 +1,7 @@
 import type { Artifact, ArtifactRef, Publisher, PublishResult, SharingScope } from "../../core/types";
 import { renderMarkdown } from "../../core/markdown";
 import { wrapHtmlDocument } from "../../core/html";
-import { GOOGLE_DOC_MIME, type DriveClient } from "./drive-client";
+import { GOOGLE_DOC_MIME, type DriveClient, type DriveFile } from "./drive-client";
 import type { SlidesClient } from "./slides-client";
 import { buildViewUrl, type GoogleConfig } from "./config";
 
@@ -76,16 +76,37 @@ export class GoogleAdapter implements Publisher {
     else throw new Error(`sharing scope not supported in POC: ${scope}`);
   }
 
-  // Implemented in later tasks:
-  async update(_id: string, _content: string): Promise<PublishResult> {
-    throw new Error("not implemented");
+  async update(id: string, content: string): Promise<PublishResult> {
+    const file = await this.drive.getFile(id);
+    if (file.mimeType !== "text/html") {
+      throw new Error("republish supports HTML pages/decks only in the POC");
+    }
+    await this.drive.updateFileContent(id, wrapHtmlDocument(content, file.name), "text/html");
+    return { id, viewUrl: buildViewUrl(this.config.rendererBaseUrl, id) };
   }
+
   async list(): Promise<ArtifactRef[]> {
-    throw new Error("not implemented");
+    const parent = await this.folder();
+    return (await this.drive.listFolder(parent)).map((f) => this.toRef(f));
   }
-  async search(_query: string): Promise<ArtifactRef[]> {
-    throw new Error("not implemented");
+
+  async search(query: string): Promise<ArtifactRef[]> {
+    const parent = await this.folder();
+    return (await this.drive.searchFolder(parent, query)).map((f) => this.toRef(f));
   }
+
+  private toRef(f: DriveFile): ArtifactRef {
+    if (f.mimeType === GOOGLE_DOC_MIME) {
+      return { id: f.id, title: f.name, type: "doc", editUrl: f.webViewLink };
+    }
+    return {
+      id: f.id,
+      title: f.name.replace(/\.html$/i, ""),
+      type: "page",
+      viewUrl: buildViewUrl(this.config.rendererBaseUrl, f.id),
+    };
+  }
+
   async setSharing(id: string, scope: SharingScope): Promise<void> {
     await this.applySharing(id, scope);
   }
