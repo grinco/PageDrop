@@ -15,3 +15,14 @@ describe("GoogleAdapter — doc", () => {
     expect(drive.shared.has("file-1")).toBe(true);
   });
 });
+
+describe("GoogleAdapter — page", () => {
+  it("stores HTML as a blob and returns a renderer view URL", async () => {
+    const drive = new FakeDriveClient();
+    const adapter = new GoogleAdapter(drive, config);
+    const res = await adapter.publish({ type: "page", title: "Dashboard", content: "<h1>x</h1>" });
+    expect(res.viewUrl).toBe("https://script.google.com/exec?id=file-1");
+    expect(res.editUrl).toBeUndefined();
+    expect(drive.shared.has("file-1")).toBe(true);
+  });
+});
