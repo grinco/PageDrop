@@ -33,6 +33,19 @@ export class GoogleAdapter implements Publisher {
       await this.applySharing(file.id, scope);
       return { id: file.id, editUrl: file.webViewLink };
     }
+
+    if (artifact.type === "page") {
+      const html = wrapHtmlDocument(artifact.content, artifact.title);
+      const file = await this.drive.uploadFile({
+        name: `${artifact.title}.html`,
+        mimeType: "text/html",
+        content: html,
+        parents: [parent],
+      });
+      await this.applySharing(file.id, scope);
+      return { id: file.id, viewUrl: buildViewUrl(this.config.rendererBaseUrl, file.id) };
+    }
+
     throw new Error(`unsupported artifact type: ${artifact.type}`);
   }
 
