@@ -46,6 +46,28 @@ export class GoogleAdapter implements Publisher {
       return { id: file.id, viewUrl: buildViewUrl(this.config.rendererBaseUrl, file.id) };
     }
 
+    if (artifact.type === "deck") {
+      const html = wrapHtmlDocument(artifact.content, artifact.title);
+      const file = await this.drive.uploadFile({
+        name: `${artifact.title}.html`,
+        mimeType: "text/html",
+        content: html,
+        parents: [parent],
+      });
+      await this.applySharing(file.id, scope);
+      const viewUrl = buildViewUrl(this.config.rendererBaseUrl, file.id);
+      let editUrl: string | undefined;
+      if (this.slides) {
+        try {
+          const deck = await this.slides.createDeck(artifact.title, viewUrl);
+          editUrl = deck.webViewLink;
+        } catch {
+          editUrl = undefined; // best-effort; rendered deck is the deliverable
+        }
+      }
+      return { id: file.id, viewUrl, editUrl };
+    }
+
     throw new Error(`unsupported artifact type: ${artifact.type}`);
   }
 
