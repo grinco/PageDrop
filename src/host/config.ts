@@ -9,12 +9,23 @@ export interface HostConfig {
   reaperIntervalSeconds: number;
   /** Secret for signing unlock cookies. Undefined = random per-process fallback. */
   cookieSecret?: string;
+  /**
+   * Whether the unlock cookie carries the `Secure` attribute. Defaults to true.
+   * Set false only for HTTP-only deployments (no TLS in front of the view
+   * server), otherwise the browser drops the Secure cookie and unlock loops.
+   */
+  cookieSecure: boolean;
   /** When true, publishes without an explicit password get an auto-generated one. */
   defaultProtect: boolean;
 }
 
 function boolEnv(v: string | undefined): boolean {
   return v === "true" || v === "1";
+}
+
+/** Parse a boolean env var that defaults to true when unset. */
+function boolEnvDefaultTrue(v: string | undefined): boolean {
+  return v === undefined || v === "" ? true : boolEnv(v);
 }
 
 function numEnv(v: string | undefined): number | undefined {
@@ -47,6 +58,7 @@ export function loadHostConfigFromEnv(): HostConfig {
     defaultTtlSeconds: numEnv(process.env.PAGEDROP_DEFAULT_TTL_SECONDS),
     reaperIntervalSeconds: numEnv(process.env.PAGEDROP_REAPER_INTERVAL_SECONDS) ?? 300,
     cookieSecret,
+    cookieSecure: boolEnvDefaultTrue(process.env.PAGEDROP_COOKIE_SECURE),
     defaultProtect,
   };
 }

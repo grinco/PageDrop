@@ -52,6 +52,20 @@ describe("host write API", () => {
     expect(upd.status).toBe(200);
   });
 
+  it("GETs a single artifact's metadata (type) and 404s when absent", async () => {
+    const { id } = await (await fetch(`${base}/api/publish`, {
+      method: "POST", headers: auth,
+      body: JSON.stringify({ type: "doc", title: "Notes", html: "<h1>hi</h1>" }),
+    })).json();
+
+    const got = await fetch(`${base}/api/artifacts/${id}`, { headers: auth });
+    expect(got.status).toBe(200);
+    expect(await got.json()).toMatchObject({ id, type: "doc", title: "Notes" });
+
+    expect((await fetch(`${base}/api/artifacts/missing-000000`, { headers: auth })).status).toBe(404);
+    expect((await fetch(`${base}/api/artifacts/${id}`)).status).toBe(401); // token required
+  });
+
   it("returns 404 when updating a nonexistent artifact (never creates)", async () => {
     const res = await fetch(`${base}/api/artifacts/missing-000000`, {
       method: "PUT", headers: auth, body: JSON.stringify({ html: "x" }),
@@ -153,8 +167,37 @@ describe("password-protected viewing", () => {
     const cookie = ok.headers.get("set-cookie") ?? "";
     expect(cookie).toContain(`pd_auth_${id}=`);
     expect(cookie.toLowerCase()).toContain("httponly");
+    // Secure by default so the cookie is only sent over HTTPS.
+    expect(cookie.toLowerCase()).toContain("secure");
 
     // Present the cookie → content served.
+    const jar = cookie.split(";")[0];
+    const unlocked = await fetch(`${vbase}/p/${id}`, { headers: { Cookie: jar } });
+    expect(unlocked.status).toBe(200);
+    expect(await unlocked.text()).toBe("<h1>classified</h1>");
+
+    await new Promise<void>((r) => view.close(() => r()));
+  });
+
+  it("omits the Secure attribute when cookieSecure is disabled (HTTP-only deploys)", async () => {
+    const storage = createStorage(dir);
+    const { id } = await storage.publish({ type: "page", title: "Secret", html: "<h1>classified</h1>", password: "opensesame" });
+    const view = createServer(makeView(storage, dir, { cookieSecret: "sekret", failDelayMs: 0, cookieSecure: false }));
+    await new Promise<void>((r) => view.listen(0, "127.0.0.1", r));
+    const addr = view.address();
+    const vbase = typeof addr === "object" && addr ? `http://127.0.0.1:${addr.port}` : "";
+
+    const ok = await fetch(`${vbase}/p/${id}`, {
+      method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "password=opensesame", redirect: "manual",
+    });
+    expect(ok.status).toBe(302);
+    const cookie = ok.headers.get("set-cookie") ?? "";
+    expect(cookie).toContain(`pd_auth_${id}=`);
+    expect(cookie.toLowerCase()).toContain("httponly");
+    expect(cookie.toLowerCase()).not.toContain("secure");
+
+    // The unlock cookie is still accepted over the (plain HTTP) test connection.
     const jar = cookie.split(";")[0];
     const unlocked = await fetch(`${vbase}/p/${id}`, { headers: { Cookie: jar } });
     expect(unlocked.status).toBe(200);

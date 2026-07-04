@@ -198,6 +198,13 @@ recommended defense-in-depth).
 - Value = `base64url(payload) "." base64url(HMAC-SHA256(payload, secret))`.
 - Attributes: `HttpOnly`, `SameSite=Lax`, `Secure`, and `Max-Age` matching the
   payload expiry (short-lived, e.g. 1 hour).
+  - The `Secure` attribute is on by default and can be dropped via
+    `PAGEDROP_COOKIE_SECURE=false` (chart: `protection.cookieSecure`). This is
+    **only** for HTTP-only deployments (no TLS anywhere in front of the view
+    server): a `Secure` cookie is never stored/returned by the browser over
+    plain `http://`, so the unlock form would otherwise loop forever. Leave it
+    on wherever TLS terminates in front — dropping it exposes the unlock cookie
+    to interception on a plain connection.
 - Verification recomputes the HMAC (constant-time compare) and checks the
   embedded expiry and id. Any mismatch → treated as no cookie (re-prompt).
 - Secret comes from `PAGEDROP_COOKIE_SECRET`.
@@ -312,6 +319,7 @@ interface Publisher {
 | `defaultTtlSeconds?` | `PAGEDROP_DEFAULT_TTL_SECONDS` | unset (never) |
 | `reaperIntervalSeconds` | `PAGEDROP_REAPER_INTERVAL_SECONDS` | `300` |
 | `cookieSecret` | `PAGEDROP_COOKIE_SECRET` | random per-process (warn); **required** if `defaultProtect` |
+| `cookieSecure` | `PAGEDROP_COOKIE_SECURE` | `true` (drop `Secure` only for HTTP-only deploys) |
 | `defaultProtect` | `PAGEDROP_DEFAULT_PROTECT` | `false` |
 
 ## MCP surface

@@ -6,7 +6,9 @@ class FakeHost {
   public calls: { m: string; args: unknown[] }[] = [];
   publishReturn: { id: string; password?: string } = { id: "q3-abc123" };
   protectReturn: { id: string; password?: string } = { id: "a" };
+  getReturn: { id: string; title: string; type: string } = { id: "q3-abc123", title: "Q3", type: "page" };
   async publish(body: unknown) { this.calls.push({ m: "publish", args: [body] }); return this.publishReturn; }
+  async get(id: string) { this.calls.push({ m: "get", args: [id] }); return this.getReturn; }
   async update(id: string, body: unknown) { this.calls.push({ m: "update", args: [id, body] }); return { id }; }
   async delete(id: string) { this.calls.push({ m: "delete", args: [id] }); }
   async setProtection(id: string, body: unknown) { this.calls.push({ m: "setProtection", args: [id, body] }); return this.protectReturn; }
@@ -39,12 +41,26 @@ describe("KubernetesPublisher", () => {
     expect(body.html).toContain("<h1>Hi</h1>");
   });
 
-  it("updates and returns the stable view URL", async () => {
+  it("updates a page verbatim and returns the stable view URL", async () => {
     const host = new FakeHost();
     const pub = new KubernetesPublisher(host as unknown as HostClient, config);
     const res = await pub.update("q3-abc123", "<h1>new</h1>");
     expect(host.last().m).toBe("update");
+    const body = host.last().args[1] as { html: string };
+    expect(body.html).toContain("<h1>new</h1>");
     expect(res.viewUrl).toBe("https://pagedrop.internal/p/q3-abc123");
+  });
+
+  it("re-renders a doc's Markdown on republish (looks up the artifact's type first)", async () => {
+    const host = new FakeHost();
+    host.getReturn = { id: "notes-abc123", title: "Notes", type: "doc" };
+    const pub = new KubernetesPublisher(host as unknown as HostClient, config);
+    await pub.update("notes-abc123", "# Hi\n\ntext");
+    expect(host.calls.map((c) => c.m)).toEqual(["get", "update"]);
+    const body = host.last().args[1] as { html: string };
+    expect(body.html).toContain("<h1>Hi</h1>");
+    expect(body.html).not.toContain("# Hi");
+    expect(body.html).toContain("<title>Notes</title>");
   });
 
   it("maps list/search to refs with composed view URLs", async () => {

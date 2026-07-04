@@ -36,7 +36,13 @@ export class KubernetesPublisher implements Publisher {
   }
 
   async update(id: string, content: string): Promise<PublishResult> {
-    await this.client.update(id, { html: wrapHtmlDocument(content, "") });
+    // Re-render exactly as publish does: a doc's content is Markdown and must be
+    // converted; a page/deck is already HTML. The host stores bytes and does not
+    // render, so the type-aware conversion has to happen here (as it does on
+    // publish) — otherwise republishing a doc would serve raw Markdown.
+    const item = await this.client.get(id);
+    const inner = item.type === "doc" ? renderMarkdown(content) : content;
+    await this.client.update(id, { html: wrapHtmlDocument(inner, item.title) });
     return { id, viewUrl: this.viewUrl(id) };
   }
 

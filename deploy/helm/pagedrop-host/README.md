@@ -122,6 +122,22 @@ separators, e.g. `river-cloud7moon.stone`), returned once in the publish result:
 `defaultProtect=true` **requires** a `cookieSecret` — the chart refuses to render
 without one.
 
+### Serving over plain HTTP (no TLS anywhere)
+
+The unlock cookie carries the `Secure` attribute by default, so browsers only
+send it back over HTTPS. If the viewing port is reached over plain `http://`
+(no TLS at the ingress or anywhere in front), the browser silently drops the
+cookie and the unlock form loops forever. For those HTTP-only deployments, set
+`PAGEDROP_COOKIE_SECURE=false` to omit the attribute:
+
+```
+--set protection.cookieSecure=false
+```
+
+Leave it at the default (`true`) whenever TLS terminates in front of the view
+server — dropping `Secure` exposes the unlock cookie to interception on a plain
+connection.
+
 ## Token rotation
 
 1. Update the Secret: `helm upgrade ... --set token.value=<new>` (or edit the

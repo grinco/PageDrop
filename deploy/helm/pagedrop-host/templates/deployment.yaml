@@ -46,6 +46,8 @@ spec:
               value: {{ .Values.lifecycle.reaperIntervalSeconds | quote }}
             - name: PAGEDROP_DEFAULT_PROTECT
               value: {{ .Values.protection.defaultProtect | quote }}
+            - name: PAGEDROP_COOKIE_SECURE
+              value: {{ .Values.protection.cookieSecure | quote }}
             {{- if include "pagedrop-host.cookieSecretConfigured" . }}
             - name: PAGEDROP_COOKIE_SECRET
               valueFrom:

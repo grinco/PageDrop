@@ -7,7 +7,7 @@ const clearOptional = () => {
   for (const k of [
     "PAGEDROP_HOST_DATA_DIR", "PAGEDROP_HOST_VIEW_PORT", "PAGEDROP_HOST_API_PORT",
     "PAGEDROP_DEFAULT_TTL_SECONDS", "PAGEDROP_REAPER_INTERVAL_SECONDS",
-    "PAGEDROP_COOKIE_SECRET", "PAGEDROP_DEFAULT_PROTECT",
+    "PAGEDROP_COOKIE_SECRET", "PAGEDROP_DEFAULT_PROTECT", "PAGEDROP_COOKIE_SECURE",
   ]) vi.stubEnv(k, undefined);
 };
 
@@ -23,8 +23,16 @@ describe("loadHostConfigFromEnv", () => {
       defaultTtlSeconds: undefined,
       reaperIntervalSeconds: 300,
       cookieSecret: undefined,
+      cookieSecure: true,
       defaultProtect: false,
     });
+  });
+
+  it("disables the Secure cookie attribute when PAGEDROP_COOKIE_SECURE is false", () => {
+    vi.stubEnv("PAGEDROP_HOST_TOKEN", "s3cret");
+    clearOptional();
+    vi.stubEnv("PAGEDROP_COOKIE_SECURE", "false");
+    expect(loadHostConfigFromEnv().cookieSecure).toBe(false);
   });
 
   it("honors overrides", () => {

@@ -29,6 +29,11 @@ protection:
   # no-SSO installations. REQUIRES a cookieSecret below (the chart will refuse to
   # render otherwise).
   defaultProtect: false
+  # Whether the page-unlock cookie carries the `Secure` attribute (HTTPS-only).
+  # Leave true whenever TLS terminates in front of the view server. Set false
+  # ONLY for HTTP-only deployments (no TLS anywhere) — otherwise the browser
+  # drops the Secure cookie and the unlock form loops forever.
+  cookieSecure: true
   # Secret used to HMAC-sign page-unlock cookies. STRONGLY RECOMMENDED whenever
   # passwords are used and MANDATORY when defaultProtect is true — otherwise the
   # host falls back to a random per-process secret and unlock sessions break on

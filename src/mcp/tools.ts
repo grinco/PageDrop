@@ -43,7 +43,9 @@ export function registerTools(host: ToolHost, service: PublishService): void {
 
   host.tool(
     "pagedrop_publish_doc",
-    "Publish a Markdown document as a shareable, editable Google Doc.",
+    "Publish a Markdown document as a shareable page. The Markdown is rendered to HTML for you — " +
+      "use this for any Markdown/prose content (do NOT pass Markdown to publish_page/publish_deck, " +
+      "which serve their input verbatim as HTML).",
     { title: z.string(), markdown: z.string(), tags, ttlSeconds, password },
     async ({ title, markdown, tags, ttlSeconds, password }) =>
       text(describeResult("document", title, await service.publishDoc(title, markdown, tags, { ttlSeconds, password }))),
@@ -51,7 +53,8 @@ export function registerTools(host: ToolHost, service: PublishService): void {
 
   host.tool(
     "pagedrop_publish_page",
-    "Publish a full HTML page rendered at a shareable Google Workspace URL.",
+    "Publish a full HTML page at a shareable URL. Content must be HTML — it is served verbatim, " +
+      "not rendered. For Markdown, use pagedrop_publish_doc instead.",
     { title: z.string(), html: z.string(), tags, ttlSeconds, password },
     async ({ title, html, tags, ttlSeconds, password }) =>
       text(describeResult("page", title, await service.publishPage(title, html, tags, { ttlSeconds, password }))),
@@ -67,7 +70,8 @@ export function registerTools(host: ToolHost, service: PublishService): void {
 
   host.tool(
     "pagedrop_republish",
-    "Replace the HTML content of a previously published page or deck, keeping its URL.",
+    "Replace the content of a previously published artifact, keeping its URL. Provide content in the " +
+      "artifact's original format — Markdown for a doc (re-rendered for you), HTML for a page or deck.",
     { id: z.string(), html: z.string() },
     async ({ id, html }) => text(describeResult("update", id, await service.republish(id, html))),
   );
