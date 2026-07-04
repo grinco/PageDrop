@@ -4,11 +4,9 @@
       "command": "npx",
       "args": ["tsx", "/absolute/path/to/PageDrop/src/index.ts"],
       "env": {
-        "GOOGLE_CLIENT_ID": "...",
-        "GOOGLE_CLIENT_SECRET": "...",
-        "GOOGLE_REFRESH_TOKEN": "...",
-        "PAGEDROP_RENDERER_URL": "https://script.google.com/macros/s/XXXX/exec",
-        "PAGEDROP_FOLDER_NAME": "PageDrop"
+        "PAGEDROP_PUBLISHER_URL": "https://script.google.com/macros/s/AAAA/exec",
+        "PAGEDROP_RENDERER_URL": "https://script.google.com/macros/s/BBBB/exec",
+        "PAGEDROP_PUBLISH_SECRET": "..."
       }
     }
   }
