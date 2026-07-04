@@ -42,6 +42,11 @@ apiIngress:
   tls: []
 
 # NetworkPolicy restricting who can reach the write-API port (8081).
+# The write API is DENY-BY-DEFAULT: with both allow-lists below empty, no
+# ingress rule for port 8081 is rendered at all, so it is unreachable. You
+# MUST set allowedCIDRs and/or allowedPodSelectors to permit your MCP
+# client's source (or set networkPolicy.enabled=false to disable the policy
+# entirely and rely on other network controls).
 networkPolicy:
   enabled: true
   # CIDRs allowed to reach the API port (e.g. your MCP host / VPN range).

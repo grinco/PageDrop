@@ -42,7 +42,7 @@ spec:
           readinessProbe:
             httpGet:
               path: /readyz
-              port: view
+              port: api
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
