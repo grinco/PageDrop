@@ -128,11 +128,29 @@ function ensureFolder_() {
 }
 
 function getFileOrNotFound_(id) {
+  var file;
   try {
-    return DriveApp.getFileById(id);
+    file = DriveApp.getFileById(id);
   } catch (err) {
     throw coded_('not_found', 'no such file: ' + id);
   }
+  // Confine writes/sharing to the PageDrop folder: a valid secret must not be
+  // able to mutate arbitrary files the deploying account can edit. Report
+  // not_found (not a distinct error) so file existence outside the folder
+  // is not revealed.
+  if (!isInPageDropFolder_(file)) {
+    throw coded_('not_found', 'no such file: ' + id);
+  }
+  return file;
+}
+
+function isInPageDropFolder_(file) {
+  var folderId = ensureFolder_().getId();
+  var parents = file.getParents();
+  while (parents.hasNext()) {
+    if (parents.next().getId() === folderId) return true;
+  }
+  return false;
 }
 
 function parseBody_(e) {
@@ -149,13 +167,18 @@ function authorized_(provided) {
   return secretsMatch_(provided, expected);
 }
 
-// Length-checked constant-time comparison (GAS has no timingSafeEqual).
-function secretsMatch_(a, b) {
-  if (typeof a !== 'string' || typeof b !== 'string') return false;
-  if (a.length !== b.length) return false;
-  var r = 0;
-  for (var i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return r === 0;
+// Best-effort constant-time comparison (GAS has no timingSafeEqual). Iterates
+// over the expected secret's full length regardless of the provided input and
+// folds a length mismatch into the result, so it does not early-return on a
+// length difference (which would leak the expected length via timing).
+function secretsMatch_(provided, expected) {
+  if (typeof provided !== 'string' || typeof expected !== 'string') return false;
+  var mismatch = provided.length === expected.length ? 0 : 1;
+  for (var i = 0; i < expected.length; i++) {
+    var p = i < provided.length ? provided.charCodeAt(i) : 0;
+    mismatch |= p ^ expected.charCodeAt(i);
+  }
+  return mismatch === 0;
 }
 
 function stripHtmlExt_(name) {

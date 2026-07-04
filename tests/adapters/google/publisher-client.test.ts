@@ -51,4 +51,32 @@ describe("PublisherClient", () => {
 
     await expect(client.call("list", {})).rejects.toThrow(/malformed/i);
   });
+
+  it("passes an abort signal so a hung request cannot block forever", async () => {
+    let seenSignal: unknown;
+    const fetchFn = async (_url: string, init: { signal?: unknown }) => {
+      seenSignal = init.signal;
+      return new Response(JSON.stringify({ ok: true, data: {} }), { status: 200 });
+    };
+    const client = new PublisherClient("https://pub/exec", "s", fetchFn);
+    await client.call("list", {});
+    expect(seenSignal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("wraps a network failure or timeout in a PublisherError", async () => {
+    const fetchFn = async () => {
+      throw Object.assign(new Error("The operation timed out"), { name: "TimeoutError" });
+    };
+    const client = new PublisherClient("https://pub/exec", "s", fetchFn);
+    await expect(client.call("list", {})).rejects.toBeInstanceOf(PublisherError);
+    await expect(client.call("list", {})).rejects.toMatchObject({ code: "timeout" });
+  });
+
+  it("maps a generic (non-timeout) network failure to an internal PublisherError", async () => {
+    const fetchFn = async () => {
+      throw new TypeError("fetch failed");
+    };
+    const client = new PublisherClient("https://pub/exec", "s", fetchFn);
+    await expect(client.call("list", {})).rejects.toMatchObject({ code: "internal" });
+  });
 });
