@@ -3,7 +3,10 @@ export type PublisherErrorCode =
   | "bad_request"
   | "not_found"
   | "unsupported"
+  | "timeout"
   | "internal";
+
+const DEFAULT_TIMEOUT_MS = 30_000;
 
 export class PublisherError extends Error {
   constructor(
@@ -18,7 +21,7 @@ export class PublisherError extends Error {
 /** Minimal shape of `fetch` we depend on — keeps us off the DOM lib types. */
 export type FetchLike = (
   url: string,
-  init: { method: string; headers: Record<string, string>; body: string },
+  init: { method: string; headers: Record<string, string>; body: string; signal?: AbortSignal },
 ) => Promise<{ ok: boolean; status: number; text(): Promise<string> }>;
 
 /** RPC the {@link AppsScriptPublisher} depends on. */
@@ -38,16 +41,27 @@ export class PublisherClient implements PublisherRpc {
     private readonly url: string,
     private readonly secret: string,
     fetchFn: FetchLike = globalThis.fetch as unknown as FetchLike,
+    private readonly timeoutMs: number = DEFAULT_TIMEOUT_MS,
   ) {
     this.fetchFn = fetchFn;
   }
 
   async call(action: string, payload: Record<string, unknown>): Promise<Record<string, unknown>> {
-    const res = await this.fetchFn(this.url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ secret: this.secret, action, ...payload }),
-    });
+    let res: { ok: boolean; status: number; text(): Promise<string> };
+    try {
+      res = await this.fetchFn(this.url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ secret: this.secret, action, ...payload }),
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+    } catch (err) {
+      const name = (err as Error)?.name;
+      if (name === "TimeoutError" || name === "AbortError") {
+        throw new PublisherError("timeout", `publisher request timed out after ${this.timeoutMs}ms`);
+      }
+      throw new PublisherError("internal", `publisher request failed: ${(err as Error)?.message ?? err}`);
+    }
     if (!res.ok) {
       throw new PublisherError("internal", `publisher returned HTTP ${res.status}`);
     }

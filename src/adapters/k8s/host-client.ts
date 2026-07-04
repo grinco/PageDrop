@@ -5,9 +5,11 @@ export class K8sHostError extends Error {
   }
 }
 
+const DEFAULT_TIMEOUT_MS = 30_000;
+
 export type FetchLike = (
   url: string,
-  init: { method: string; headers: Record<string, string>; body?: string },
+  init: { method: string; headers: Record<string, string>; body?: string; signal?: AbortSignal },
 ) => Promise<{ ok: boolean; status: number; text(): Promise<string> }>;
 
 export interface RemoteItem {
@@ -25,6 +27,7 @@ export class HostClient {
     private readonly apiUrl: string,
     private readonly token: string,
     fetchFn: FetchLike = globalThis.fetch as unknown as FetchLike,
+    private readonly timeoutMs: number = DEFAULT_TIMEOUT_MS,
   ) {
     this.fetchFn = fetchFn;
   }
@@ -34,11 +37,21 @@ export class HostClient {
   }
 
   private async call(method: string, path: string, body?: unknown): Promise<Record<string, unknown>> {
-    const res = await this.fetchFn(`${this.base()}${path}`, {
-      method,
-      headers: { Authorization: `Bearer ${this.token}`, "Content-Type": "application/json" },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
+    let res: { ok: boolean; status: number; text(): Promise<string> };
+    try {
+      res = await this.fetchFn(`${this.base()}${path}`, {
+        method,
+        headers: { Authorization: `Bearer ${this.token}`, "Content-Type": "application/json" },
+        body: body === undefined ? undefined : JSON.stringify(body),
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+    } catch (err) {
+      const name = (err as Error)?.name;
+      if (name === "TimeoutError" || name === "AbortError") {
+        throw new K8sHostError(0, `host request timed out after ${this.timeoutMs}ms`);
+      }
+      throw new K8sHostError(0, `host request failed: ${(err as Error)?.message ?? err}`);
+    }
     const text = await res.text();
     let parsed: Record<string, unknown> = {};
     if (text) {
