@@ -10,18 +10,22 @@ a token-gated write API (`:8081`, reached by the PageDrop MCP server).
 helm install pagedrop deploy/helm/pagedrop-host \
   --set image.repository=<your-registry>/pagedrop-host \
   --set image.tag=0.1.0 \
-  --set token.value=$(openssl rand -hex 32) \
-  --set viewIngress.host=pagedrop.internal.example.com
+  --set token.value=$(openssl rand -hex 32)
 ```
 
-Set the same token as `PAGEDROP_K8S_TOKEN` in the MCP server's environment
-(`PAGEDROP_BACKEND=kubernetes`, `PAGEDROP_K8S_API_URL`, `PAGEDROP_K8S_BASE_URL`).
+This installs with the viewing ingress **disabled**. Set the same token as
+`PAGEDROP_K8S_TOKEN` in the MCP server's environment (`PAGEDROP_BACKEND=kubernetes`,
+`PAGEDROP_K8S_API_URL`, `PAGEDROP_K8S_BASE_URL`).
 
 ## Putting viewing behind SSO (worked example: oauth2-proxy)
 
-Inject your proxy's annotations onto the viewing ingress only:
+The viewing ingress is disabled by default because enabling it without an SSO
+proxy in front would expose published pages unauthenticated. You must enable
+it together with your proxy's annotations in the same install/upgrade:
 
 ```
+--set viewIngress.enabled=true \
+--set viewIngress.host=pagedrop.internal.example.com \
 --set-json 'viewIngress.annotations={"nginx.ingress.kubernetes.io/auth-url":"https://oauth2-proxy.internal/oauth2/auth","nginx.ingress.kubernetes.io/auth-signin":"https://oauth2-proxy.internal/oauth2/start?rd=$escaped_request_uri"}'
 ```
 
@@ -29,6 +33,18 @@ The API ingress must NOT carry these annotations — the headless MCP server
 cannot complete interactive SSO. Keep `apiIngress.enabled=false` and reach the
 Service in-cluster when possible, or restrict it via `networkPolicy.allowedCIDRs`
 and a private load balancer.
+
+## Restricting direct access to the viewing port (8080)
+
+By default, port 8080 is reachable by any in-cluster pod — SSO only fronts
+the ingress, it does not gate pod-to-pod traffic. If you want to restrict
+direct access to just your SSO proxy's source, set one of:
+
+```
+--set 'networkPolicy.viewAllowedCIDRs={10.0.0.0/8}'
+```
+
+or a pod selector via `networkPolicy.viewAllowedPodSelectors`.
 
 ## Write-API NetworkPolicy is deny-by-default
 

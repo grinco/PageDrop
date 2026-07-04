@@ -1,4 +1,12 @@
 import { loadHostConfigFromEnv } from "./config";
 import { start } from "./server";
 
-start(loadHostConfigFromEnv());
+const { view, api } = start(loadHostConfigFromEnv());
+
+function shutdown(): void {
+  view.close();
+  api.close();
+}
+
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);

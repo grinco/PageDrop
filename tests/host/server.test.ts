@@ -87,4 +87,22 @@ describe("host viewing surface", () => {
     expect((await fetch(`${vbase}/p/does-not-exist`)).status).toBe(404);
     await new Promise<void>((r) => view.close(() => r()));
   });
+
+  it("readyz reflects data dir writability", async () => {
+    const storage = createStorage(dir);
+
+    const badView = createServer(createViewHandler(storage, join(dir, "does-not-exist")));
+    await new Promise<void>((r) => badView.listen(0, "127.0.0.1", r));
+    const badAddr = badView.address();
+    const badBase = typeof badAddr === "object" && badAddr ? `http://127.0.0.1:${badAddr.port}` : "";
+    expect((await fetch(`${badBase}/readyz`)).status).toBe(503);
+    await new Promise<void>((r) => badView.close(() => r()));
+
+    const goodView = createServer(createViewHandler(storage, dir));
+    await new Promise<void>((r) => goodView.listen(0, "127.0.0.1", r));
+    const goodAddr = goodView.address();
+    const goodBase = typeof goodAddr === "object" && goodAddr ? `http://127.0.0.1:${goodAddr.port}` : "";
+    expect((await fetch(`${goodBase}/readyz`)).status).toBe(200);
+    await new Promise<void>((r) => goodView.close(() => r()));
+  });
 });
