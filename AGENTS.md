@@ -18,25 +18,21 @@ src/core/            backend-neutral core
   markdown.ts           Markdown helpers (used for pagedrop_publish_doc)
   html.ts                HTML helpers (used for pages/decks)
 
-src/adapters/google/  the Google Workspace adapter (first Publisher impl)
-  google-adapter.ts     GoogleAdapter implements Publisher
-  drive-client.ts        DriveClient interface
-  slides-client.ts       SlidesClient interface
-  google-drive-client.ts  real Drive API implementation of DriveClient
-  google-slides-client.ts real Slides API implementation of SlidesClient
-  apps-script-publisher.ts AppsScriptPublisher implements Publisher (GCP-free,
-                          default wiring): delegates Drive work to the Apps
-                          Script publisher web app
+src/adapters/google/  the Google Workspace adapter (Publisher impl)
+  apps-script-publisher.ts AppsScriptPublisher implements Publisher (GCP-free):
+                          delegates all Drive work to the Apps Script publisher
+                          web app
   publisher-client.ts     PublisherClient — HTTP transport to that web app
-  config.ts               env var loading (publisher + legacy OAuth paths)
+  config.ts               env var loading (loadPublisherConfigFromEnv) +
+                          buildViewUrl
 
 src/mcp/tools.ts       registers the six pagedrop_* MCP tools against a
                         PublishService
-src/index.ts           entrypoint: wires GoogleAdapter + PublishService +
+src/index.ts           entrypoint: wires AppsScriptPublisher + PublishService +
                         registerTools, connects over stdio
 
-tests/fakes/           in-memory fakes (FakeDriveClient, FakeSlidesClient,
-                        FakePublisher) used by all unit tests — no network
+tests/fakes/           in-memory fakes (FakePublisher) used by unit tests —
+                        no network
 ```
 
 The dependency direction is one-way: MCP layer → core → `Publisher`
@@ -72,7 +68,7 @@ source via `tsx`.
 2. Write it test-first: build a fake for the new backend's client(s) under
    `tests/fakes/`, write tests against the fake, then implement.
 3. Wire the new adapter into `src/index.ts` (in place of, or alongside,
-   `GoogleAdapter`) so it's constructed and passed into `PublishService`.
+   `AppsScriptPublisher`) so it's constructed and passed into `PublishService`.
 4. Do not change `PublishService` or `src/mcp/tools.ts` to special-case the
    new backend — the point of the `Publisher` interface is that they don't
    need to know which backend is behind it.
