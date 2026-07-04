@@ -14,7 +14,10 @@ spec:
     # Viewing port is open (SSO proxy fronts it).
     - ports:
         - port: 8080
-    # Write-API port restricted to explicit sources.
+    # Write-API port: deny-by-default. Only emitted when at least one source
+    # is explicitly configured, so an empty from: (which Kubernetes treats as
+    # "allow all") is never rendered.
+    {{- if or .Values.networkPolicy.allowedCIDRs .Values.networkPolicy.allowedPodSelectors }}
     - ports:
         - port: 8081
       from:
@@ -27,4 +30,5 @@ spec:
             matchLabels:
               {{- toYaml . | nindent 14 }}
         {{- end }}
+    {{- end }}
 {{- end }}

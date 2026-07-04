@@ -30,6 +30,22 @@ cannot complete interactive SSO. Keep `apiIngress.enabled=false` and reach the
 Service in-cluster when possible, or restrict it via `networkPolicy.allowedCIDRs`
 and a private load balancer.
 
+## Write-API NetworkPolicy is deny-by-default
+
+The chart's `NetworkPolicy` allows port `8080` (viewing) unconditionally, but
+port `8081` (write API) is **deny-by-default**: if both
+`networkPolicy.allowedCIDRs` and `networkPolicy.allowedPodSelectors` are
+empty, no ingress rule for port 8081 is rendered at all, so nothing can reach
+it — including your own MCP server. You MUST set one of:
+
+```
+--set 'networkPolicy.allowedCIDRs={10.0.0.0/8}'
+```
+
+or a pod selector via `networkPolicy.allowedPodSelectors`, to permit your MCP
+client's traffic. Alternatively, set `networkPolicy.enabled=false` to disable
+the policy entirely and rely on other network controls.
+
 ## Token rotation
 
 1. Update the Secret: `helm upgrade ... --set token.value=<new>` (or edit the
