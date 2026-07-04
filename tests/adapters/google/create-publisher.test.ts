@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach, vi } from "vitest";
 import { createPublisher } from "../../../src/adapters/google/create-publisher";
 import { AppsScriptPublisher } from "../../../src/adapters/google/apps-script-publisher";
 import { GoogleAdapter } from "../../../src/adapters/google/google-adapter";
+import { KubernetesPublisher } from "../../../src/adapters/k8s/kubernetes-publisher";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -48,5 +49,19 @@ describe("createPublisher", () => {
   it("throws a clear error naming the valid values for an unknown backend", () => {
     vi.stubEnv("PAGEDROP_BACKEND", "sharepoint");
     expect(() => createPublisher()).toThrow(/PAGEDROP_BACKEND.*appsscript.*gcp/is);
+  });
+});
+
+function stubK8sEnv() {
+  vi.stubEnv("PAGEDROP_K8S_API_URL", "https://api.internal/api");
+  vi.stubEnv("PAGEDROP_K8S_BASE_URL", "https://pagedrop.internal");
+  vi.stubEnv("PAGEDROP_K8S_TOKEN", "tok");
+}
+
+describe("createPublisher — kubernetes", () => {
+  it("selects the Kubernetes backend for 'kubernetes'", () => {
+    vi.stubEnv("PAGEDROP_BACKEND", "kubernetes");
+    stubK8sEnv();
+    expect(createPublisher()).toBeInstanceOf(KubernetesPublisher);
   });
 });
