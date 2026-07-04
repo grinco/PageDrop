@@ -106,7 +106,8 @@ The Node client treats non-200, non-JSON, or `ok:false` as a thrown
 { "secret":"…", "action":"publish", "type":"doc|page|deck", "title":"Q3 Report",
   "html":"<!doctype html>…",        // already-rendered final HTML
   "scope":"domain" }
-→ data: { "id":"1AbC…", "type":"page", "name":"Q3 Report.html", "createdAt":"2026-07-04T…Z" }
+→ data: { "id":"1AbC…", "type":"page", "name":"Q3 Report.html", "createdAt":"2026-07-04T…Z",
+          "sharing":"domain" }   // "domain" if PAGEDROP_DOMAIN is set server-side, else "public"
 
 // 2. update — overwrite content in place (stable id ⇒ stable viewUrl)
 { "secret":"…", "action":"update", "id":"1AbC…", "title":"Q3 Report (rev)", "html":"…" }
