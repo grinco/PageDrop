@@ -38,6 +38,10 @@ environment variable. The six MCP tools behave the same either way:
 - **`gcp`** — calls the Drive and Slides APIs directly via a Google Cloud OAuth
   client. Adds native Google Doc/Slides copies and Drive full-text search, at
   the cost of a one-time GCP OAuth setup.
+- **`kubernetes`** — publishes to a self-hosted PageDrop host service on your
+  Kubernetes cluster; viewing sits behind your SSO proxy. Best HTML/CSS/JS
+  fidelity and clean internal URLs; no native Docs/Slides copies or Drive
+  search. See [`deploy/helm/pagedrop-host/README.md`](deploy/helm/pagedrop-host/README.md).
 
 Pick whichever fits your environment; setup for each is below.
 
@@ -103,6 +107,18 @@ then follow the matching option. Full instructions for both live in
    - `PAGEDROP_RENDERER_URL` — the renderer web app URL, ending in `/exec` (required)
    - `PAGEDROP_FOLDER_NAME` — Drive folder for artifacts (optional, defaults to `PageDrop`)
    - `PAGEDROP_DOMAIN` — if set, restricts link-sharing to this Workspace domain (optional)
+
+### Option C — Kubernetes (self-hosted static host)
+
+1. **Deploy the host service.** Build the image from the repo `Dockerfile`,
+   push it to your registry, and install the Helm chart
+   ([`deploy/helm/pagedrop-host`](deploy/helm/pagedrop-host)). Place the viewing
+   ingress behind your SSO proxy; keep the write API internal-only.
+2. **Configure the environment.** Copy `.mcp.json.example` to `.mcp.json` and set:
+   - `PAGEDROP_BACKEND=kubernetes`
+   - `PAGEDROP_K8S_API_URL` — the write-API base URL (ends in `/api`)
+   - `PAGEDROP_K8S_BASE_URL` — the public viewing base URL (used to build `/p/<id>` links)
+   - `PAGEDROP_K8S_TOKEN` — the same token you set on the host service
 
 ### Connect it to Claude (either backend)
 

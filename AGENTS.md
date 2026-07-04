@@ -20,7 +20,7 @@ src/core/            backend-neutral core
 
 src/adapters/google/  the Google Workspace adapters (two Publisher impls)
   create-publisher.ts   factory: picks the backend from PAGEDROP_BACKEND
-                          ("appsscript" default | "gcp")
+                          ("appsscript" default | "gcp" | "kubernetes")
   apps-script-publisher.ts AppsScriptPublisher implements Publisher (GCP-free):
                           delegates Drive work to the Apps Script publisher web
                           app; the default backend
@@ -31,6 +31,13 @@ src/adapters/google/  the Google Workspace adapters (two Publisher impls)
   google-drive-client.ts  real Drive API implementation of DriveClient
   google-slides-client.ts real Slides API implementation of SlidesClient
   config.ts               env var loading (both backends) + buildViewUrl
+
+src/adapters/k8s/     the Kubernetes static-host adapter (kubernetes backend)
+  kubernetes-publisher.ts KubernetesPublisher implements Publisher
+  host-client.ts          HTTP transport to the host service write API
+  config.ts               loadK8sConfigFromEnv
+src/host/             the deployable host service (PVC store + two-port server)
+  storage.ts server.ts config.ts main.ts
 
 src/mcp/tools.ts       registers the six pagedrop_* MCP tools against a
                         PublishService
