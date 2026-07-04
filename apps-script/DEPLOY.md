@@ -1,9 +1,21 @@
-# Deploying PageDrop (one-time, admin) — no Google Cloud project required
+# Deploying PageDrop (one-time, admin)
 
-PageDrop uses **two** Apps Script web apps. Neither needs the Google Cloud
-Console or an OAuth client — Apps Script authorizes Drive access itself. This
-is what lets PageDrop run on tenants where "Google Cloud Platform service has
-been disabled" in the Workspace Admin console.
+PageDrop has two backends, selected with `PAGEDROP_BACKEND`. **Both** need the
+renderer web app (it serves rendered HTML pages/decks); only one needs a
+Google Cloud OAuth client. Pick one:
+
+- **Backend A — Apps Script (default, `PAGEDROP_BACKEND=appsscript`).** No
+  Google Cloud project or OAuth client. Works even where "Google Cloud
+  Platform service has been disabled" in the Workspace Admin console.
+- **Backend B — GCP (`PAGEDROP_BACKEND=gcp`).** Calls the Drive/Slides APIs
+  directly with an OAuth client. Adds native Google Doc/Slides copies and
+  Drive full-text search.
+
+---
+
+# Backend A — Apps Script (default)
+
+Two Apps Script web apps; Apps Script authorizes Drive access itself.
 
 ```
 MCP ──secret──▶ Publisher (anonymous, doPost, execute-as-me)  ── writes Drive files
@@ -13,7 +25,7 @@ colleague ─org login─▶ Renderer (org-only, doGet)             ── serve
 The **publisher** is anonymous-reachable, so a shared secret is the only gate
 — treat it like a password.
 
-## 1. Deploy the renderer (org-only viewing)
+## A1. Deploy the renderer (org-only viewing)
 
 1. Go to https://script.google.com and create a **New project** named
    `PageDrop renderer`.
@@ -24,7 +36,7 @@ The **publisher** is anonymous-reachable, so a shared secret is the only gate
 4. Authorize the Drive scopes when prompted.
 5. Copy the **Web app URL** (ends in `/exec`) → this is `PAGEDROP_RENDERER_URL`.
 
-## 2. Deploy the publisher (secret-gated writes)
+## A2. Deploy the publisher (secret-gated writes)
 
 1. Create a **second** New project named `PageDrop publisher`.
 2. Replace `Code.gs` with the contents of `publisher.gs` from this folder.
@@ -42,19 +54,19 @@ The **publisher** is anonymous-reachable, so a shared secret is the only gate
 5. Authorize the Drive scopes when prompted.
 6. Copy the **Web app URL** (ends in `/exec`) → this is `PAGEDROP_PUBLISHER_URL`.
 
-## 3. Environment variables for the MCP server
+## A3. Environment variables for the MCP server
 
 ```
+PAGEDROP_BACKEND=appsscript            # optional; this is the default
 PAGEDROP_PUBLISHER_URL=https://script.google.com/macros/s/AAAA/exec
 PAGEDROP_RENDERER_URL=https://script.google.com/macros/s/BBBB/exec
-PAGEDROP_PUBLISH_SECRET=<the same secret you set in step 2.3>
+PAGEDROP_PUBLISH_SECRET=<the same secret you set in step A2.3>
 ```
 
-No `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REFRESH_TOKEN` — the
-publisher runs under the deploying account, so published files live in that
-account's Drive.
+No OAuth credentials — the publisher runs under the deploying account, so
+published files live in that account's Drive.
 
-## 4. Smoke-test the publisher
+## A4. Smoke-test the publisher
 
 Confirm the deployment answers before wiring the MCP server. Publish a page:
 
@@ -71,3 +83,53 @@ into your org) to confirm it renders. A wrong/missing secret returns
 
 > Note: Apps Script caps POST payloads at tens of MB and applies per-user
 > execution quotas; both are ample for HTML publishing.
+
+---
+
+# Backend B — GCP (direct Drive/Slides API)
+
+The MCP server calls the Drive/Slides APIs directly under a Google Cloud OAuth
+client. Rendered pages/decks are still served through the **renderer** web app,
+so you deploy that too.
+
+## B1. Deploy the renderer
+
+Follow **A1** above to deploy `renderer.gs` and get `PAGEDROP_RENDERER_URL`.
+(You do **not** need the publisher web app for this backend.)
+
+## B2. Create an OAuth client in Google Cloud
+
+1. In https://console.cloud.google.com, create or select a project.
+2. **APIs & Services → Enable APIs**: enable the **Google Drive API** and
+   **Google Slides API**.
+3. **OAuth consent screen**: choose **Internal** (for a Workspace org) or
+   **External** with your account added as a test user.
+4. **Credentials → Create credentials → OAuth client ID → Desktop app**.
+   Note the **Client ID** (`GOOGLE_CLIENT_ID`) and **Client secret**
+   (`GOOGLE_CLIENT_SECRET`).
+
+## B3. Mint a refresh token
+
+Run a one-time consent to get `GOOGLE_REFRESH_TOKEN`. The simplest path is the
+[OAuth 2.0 Playground](https://developers.google.com/oauthplayground/):
+
+1. In the Playground gear menu, check **Use your own OAuth credentials** and
+   paste your client ID + secret.
+2. Authorize these scopes:
+   - `https://www.googleapis.com/auth/drive`
+   - `https://www.googleapis.com/auth/presentations`
+3. Exchange the authorization code and copy the **refresh token**.
+
+## B4. Environment variables for the MCP server
+
+```
+PAGEDROP_BACKEND=gcp
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+GOOGLE_REFRESH_TOKEN=...
+PAGEDROP_RENDERER_URL=https://script.google.com/macros/s/BBBB/exec
+PAGEDROP_FOLDER_NAME=PageDrop            # optional, defaults to "PageDrop"
+PAGEDROP_DOMAIN=yourcompany.com          # optional; restricts link-sharing to this domain
+```
+
+Published files live in the Drive of the account that minted the refresh token.
