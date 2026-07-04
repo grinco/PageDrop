@@ -64,3 +64,27 @@ describe("host write API", () => {
     expect((await fetch(`${base}/readyz`)).status).toBe(200);
   });
 });
+
+import { createViewHandler } from "../../src/host/server";
+
+describe("host viewing surface", () => {
+  it("serves published HTML at /p/:id and escapes titles in the index", async () => {
+    const storage = createStorage(dir);
+    const { id } = await storage.publish({ type: "page", title: "<script>evil</script>", html: "<h1>real page</h1>" });
+    const view = createServer(createViewHandler(storage));
+    await new Promise<void>((r) => view.listen(0, "127.0.0.1", r));
+    const addr = view.address();
+    const vbase = typeof addr === "object" && addr ? `http://127.0.0.1:${addr.port}` : "";
+
+    const page = await fetch(`${vbase}/p/${id}`);
+    expect(page.headers.get("content-type")).toContain("text/html");
+    expect(await page.text()).toBe("<h1>real page</h1>");
+
+    const index = await (await fetch(`${vbase}/`)).text();
+    expect(index).toContain("&lt;script&gt;evil&lt;/script&gt;");
+    expect(index).not.toContain("<script>evil");
+
+    expect((await fetch(`${vbase}/p/does-not-exist`)).status).toBe(404);
+    await new Promise<void>((r) => view.close(() => r()));
+  });
+});
