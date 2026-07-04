@@ -75,6 +75,19 @@ describe("HostClient", () => {
     expect(out.password).toBe("river-cloud7moon.stone");
   });
 
+  it("GETs a single artifact by id", async () => {
+    const calls: { url: string; init: { method: string } }[] = [];
+    const fetchFn = async (url: string, init: { method: string }) => {
+      calls.push({ url, init });
+      return res({ id: "notes-1", title: "Notes", type: "doc" });
+    };
+    const client = new HostClient("https://api.internal/api", "tok", fetchFn);
+    const out = await client.get("notes-1");
+    expect(calls[0].init.method).toBe("GET");
+    expect(calls[0].url).toBe("https://api.internal/api/artifacts/notes-1");
+    expect(out.type).toBe("doc");
+  });
+
   it("DELETEs an artifact by id", async () => {
     const calls: { url: string; init: { method: string } }[] = [];
     const fetchFn = async (url: string, init: { method: string }) => {

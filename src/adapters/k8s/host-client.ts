@@ -79,6 +79,9 @@ export class HostClient {
   }): Promise<{ id: string; password?: string }> {
     return (await this.call("POST", "/publish", body)) as { id: string; password?: string };
   }
+  async get(id: string): Promise<RemoteItem> {
+    return (await this.call("GET", `/artifacts/${encodeURIComponent(id)}`)) as unknown as RemoteItem;
+  }
   async update(id: string, body: { html: string; title?: string }): Promise<{ id: string }> {
     return (await this.call("PUT", `/artifacts/${encodeURIComponent(id)}`, body)) as { id: string };
   }

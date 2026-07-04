@@ -190,6 +190,13 @@ export function createApiHandler(storage: Storage, token: string, dataDir?: stri
           return sendJson(req, res, 200, { id });
         }
 
+        if (req.method === "GET" && artifactMatch) {
+          const id = decodeURIComponent(artifactMatch[1]);
+          const meta = await storage.getMeta(id);
+          if (!meta) return sendError(req, res, 404, "not_found", "no such artifact");
+          return sendJson(req, res, 200, toDto(meta));
+        }
+
         if (req.method === "DELETE" && artifactMatch) {
           const id = decodeURIComponent(artifactMatch[1]);
           await storage.delete(id);
@@ -217,6 +224,13 @@ export interface ViewHandlerOptions {
   cookieTtlSeconds?: number;
   failDelayMs?: number;
   now?: () => number; // epoch seconds
+  /**
+   * Whether to set the `Secure` attribute on the unlock cookie. Defaults to
+   * true. Disable only for HTTP-only deployments (no TLS anywhere in front of
+   * the view server), where a Secure cookie would never be stored or returned
+   * by the browser and the unlock would loop forever.
+   */
+  cookieSecure?: boolean;
 }
 
 function passwordForm(id: string, error = false): string {
@@ -244,6 +258,7 @@ export function createViewHandler(storage: Storage, dataDir?: string, options: V
   const failDelayMs = options.failDelayMs ?? DEFAULT_FAIL_DELAY_MS;
   const nowSec = options.now ?? (() => Math.floor(Date.now() / 1000));
   const secret = options.cookieSecret ?? "";
+  const cookieSecure = options.cookieSecure ?? true;
 
   const notFound = (req: IncomingMessage, res: ServerResponse): void => {
     res.writeHead(404, { "Content-Type": "text/html" });
@@ -276,7 +291,8 @@ export function createViewHandler(storage: Storage, dataDir?: string, options: V
           if (verifyPassword(submitted, meta.password)) {
             const token = signCookie(id, nowSec() + cookieTtl, secret);
             const cookie =
-              `pd_auth_${id}=${token}; HttpOnly; SameSite=Lax; Secure; ` +
+              `pd_auth_${id}=${token}; HttpOnly; SameSite=Lax; ` +
+              (cookieSecure ? "Secure; " : "") +
               `Path=${target}; Max-Age=${cookieTtl}`;
             res.writeHead(302, { Location: target, "Set-Cookie": cookie });
             res.end();
@@ -353,7 +369,9 @@ export function start(config: HostConfig): { view: Server; api: Server } {
     defaultTtlSeconds: config.defaultTtlSeconds,
     defaultProtect: config.defaultProtect,
   });
-  const view = createServer(createViewHandler(storage, config.dataDir, { cookieSecret }));
+  const view = createServer(
+    createViewHandler(storage, config.dataDir, { cookieSecret, cookieSecure: config.cookieSecure }),
+  );
   const api = createServer(createApiHandler(storage, config.token, config.dataDir));
 
   const reaper = setInterval(() => {
