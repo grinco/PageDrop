@@ -118,13 +118,13 @@ export function createApiHandler(storage: Storage, token: string, dataDir?: stri
 }
 
 // --- viewing handler + start() are added in Task 6 ---
-export function createViewHandler(storage: Storage): Handler {
+export function createViewHandler(storage: Storage, dataDir?: string): Handler {
   return (req, res) => {
     void (async () => {
       try {
         const url = new URL(req.url ?? "/", "http://host");
         const path = url.pathname;
-        if (await handleProbe(req, res, path)) return;
+        if (await handleProbe(req, res, path, dataDir)) return;
 
         const pageMatch = path.match(/^\/p\/([^/]+)$/);
         if (req.method === "GET" && pageMatch) {
@@ -171,7 +171,7 @@ export function createViewHandler(storage: Storage): Handler {
 
 export function start(config: HostConfig): { view: Server; api: Server } {
   const storage = createStorage(config.dataDir);
-  const view = createServer(createViewHandler(storage));
+  const view = createServer(createViewHandler(storage, config.dataDir));
   const api = createServer(createApiHandler(storage, config.token, config.dataDir));
   view.listen(config.viewPort, () => console.log(`viewing on :${config.viewPort}`));
   api.listen(config.apiPort, () => console.log(`api on :${config.apiPort}`));
