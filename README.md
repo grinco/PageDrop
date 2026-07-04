@@ -68,18 +68,24 @@ wait for me before moving on.
 
 1. Clone https://github.com/grinco/PageDrop (or use the current folder if I'm
    already inside the PageDrop repo) and run `npm install` in it.
-2. Walk me through apps-script/DEPLOY.md "Backend A" to create two Google Apps
+2. First check a prerequisite: this backend needs the publisher web app to be
+   deployable with "Who has access: Anyone". Ask me to confirm my Google
+   Workspace admin allows that. If it only allows "Anyone within <org>", stop
+   and tell me to use the Kubernetes backend instead (see the Backends
+   section) — the Apps Script backend can't work headless without it.
+3. Walk me through apps-script/DEPLOY.md "Backend A" to create two Google Apps
    Script web apps in my browser — first the renderer, then the publisher.
-   Tell me exactly what to click at each screen. The code to paste is already
-   in the repo I just cloned: for each app, tell me to open the file
-   (apps-script/renderer.gs, then apps-script/publisher.gs), select all, and
-   paste it over the default Code.gs — and print the file's contents for me if
-   I ask. Generate a random publisher secret for me and have me paste it as the
-   PAGEDROP_PUBLISH_SECRET Script Property — the Apps Script UI will not save a
-   blank value, so it must be a real string, and tell me to skip the optional
-   PAGEDROP_FOLDER_NAME/PAGEDROP_DOMAIN properties entirely unless I want them.
-   Collect PAGEDROP_RENDERER_URL, PAGEDROP_PUBLISHER_URL, and
-   PAGEDROP_PUBLISH_SECRET from me before continuing.
+   Tell me exactly what to click at each screen. To get the code in, have me
+   run `npm run copy:renderer` (then `npm run copy:publisher`) — each copies
+   that web app's code to my clipboard so I can paste it straight over the
+   default Code.gs (if my machine has no clipboard tool, the command prints the
+   code to copy instead). Generate my publisher secret by having me run
+   `npm run gen:secret` (it copies a random secret to my clipboard without
+   showing it); when I add it as the PAGEDROP_PUBLISH_SECRET Script Property,
+   the Apps Script UI won't save a blank value, so paste the real secret, and
+   tell me to skip the optional PAGEDROP_FOLDER_NAME/PAGEDROP_DOMAIN properties
+   unless I want them. Collect PAGEDROP_RENDERER_URL, PAGEDROP_PUBLISHER_URL,
+   and PAGEDROP_PUBLISH_SECRET from me before continuing.
 3. Copy .mcp.json.example to .mcp.json and fill in those three values (keep
    PAGEDROP_BACKEND as "appsscript"). Never show my secret back to me in full.
 4. Tell me to fully quit and reopen Claude Code/Desktop so the `pagedrop`
