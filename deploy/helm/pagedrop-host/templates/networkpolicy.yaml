@@ -1,0 +1,30 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "pagedrop-host.fullname" . }}-api
+  labels:
+    {{- include "pagedrop-host.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "pagedrop-host.selectorLabels" . | nindent 6 }}
+  policyTypes: ["Ingress"]
+  ingress:
+    # Viewing port is open (SSO proxy fronts it).
+    - ports:
+        - port: 8080
+    # Write-API port restricted to explicit sources.
+    - ports:
+        - port: 8081
+      from:
+        {{- range .Values.networkPolicy.allowedCIDRs }}
+        - ipBlock:
+            cidr: {{ . }}
+        {{- end }}
+        {{- range .Values.networkPolicy.allowedPodSelectors }}
+        - podSelector:
+            matchLabels:
+              {{- toYaml . | nindent 14 }}
+        {{- end }}
+{{- end }}
