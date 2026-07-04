@@ -14,3 +14,11 @@ describe("wrapHtmlDocument", () => {
     expect(wrapHtmlDocument(full, "ignored")).toBe(full);
   });
 });
+
+import { escapeHtml } from "../../src/core/html";
+
+describe("escapeHtml", () => {
+  it("escapes angle brackets and ampersands", () => {
+    expect(escapeHtml('<script>a & b</script>')).toBe("&lt;script&gt;a &amp; b&lt;/script&gt;");
+  });
+});
