@@ -25,14 +25,27 @@ colleague ─org login─▶ Renderer (org-only, doGet)             ── serve
 The **publisher** is anonymous-reachable, so a shared secret is the only gate
 — treat it like a password.
 
+> **Prerequisite — check this first.** This backend requires that you can deploy
+> the publisher web app with **Who has access: Anyone** (anonymous). Some
+> Workspace admins disable that and allow only *Anyone within <your
+> organization>*. The headless MCP server has no Google login session, so it
+> **cannot call an org-restricted web app** without a Google Cloud OAuth client
+> — which is exactly what the GCP-disabled case (the reason for this backend)
+> rules out. **If your admin blocks "Anyone" access, this backend will not work
+> headless — use the Kubernetes backend instead** (see the main README); it
+> needs no Google credentials or admin toggles.
+
 ## A1. Deploy the renderer (org-only viewing)
 
 1. Go to https://script.google.com and create a **New project** named
    `PageDrop renderer`.
-2. Open `apps-script/renderer.gs` from your cloned copy of this repo, copy its
-   **entire** contents, and paste them over everything in the editor's default
-   `Code.gs`. (Doing this through Claude? Ask it to print the file's contents,
-   or open the file yourself — it's in the repo you just cloned.)
+2. Get the renderer code onto your clipboard by running, in the repo you cloned:
+   ```
+   npm run copy:renderer
+   ```
+   Then in the editor, click inside `Code.gs`, select all, and paste. (No
+   clipboard tool on your machine? The command prints the code instead so you
+   can copy it manually.)
 3. **Deploy → New deployment → Web app**:
    - Execute as: **Me**
    - Who has access: **Anyone within <your organization>**
@@ -42,15 +55,18 @@ The **publisher** is anonymous-reachable, so a shared secret is the only gate
 ## A2. Deploy the publisher (secret-gated writes)
 
 1. Create a **second** New project named `PageDrop publisher`.
-2. Open `apps-script/publisher.gs` from your cloned copy of this repo, copy its
-   **entire** contents, and paste them over everything in the editor's default
-   `Code.gs`. (Doing this through Claude? Ask it to print the file's contents,
-   or open the file yourself.)
+2. Get the publisher code onto your clipboard by running, in the repo you cloned:
+   ```
+   npm run copy:publisher
+   ```
+   Then in the editor, click inside `Code.gs`, select all, and paste. (No
+   clipboard tool? The command prints the code to copy manually.)
 3. **Project Settings → Script Properties → Add script property:**
    - `PAGEDROP_PUBLISH_SECRET` (**required**) = a high-entropy secret. Generate
-     one with `openssl rand -hex 32` and paste the result as the **value**. The
-     Script Properties UI **will not save a property with an empty value**, so
-     this must be a real string (not left blank).
+     one and copy it to your clipboard (without printing it) by running
+     `npm run gen:secret`, then paste the result as the **value** (or use
+     `openssl rand -hex 32`). The Script Properties UI **will not save a
+     property with an empty value**, so this must be a real string (not blank).
    - `PAGEDROP_FOLDER_NAME` (optional, defaults to `PageDrop`) and
      `PAGEDROP_DOMAIN` (optional; if set, published files are shared
      domain-with-link instead of anyone-with-link) — **only add these if you
@@ -58,7 +74,9 @@ The **publisher** is anonymous-reachable, so a shared secret is the only gate
      let you save them blank.
 4. **Deploy → New deployment → Web app**:
    - Execute as: **Me**
-   - Who has access: **Anyone**  ← anonymous; the secret is the gate
+   - Who has access: **Anyone**  ← anonymous; the secret is the gate. If your
+     admin only offers *Anyone within <org>*, stop here — see the prerequisite
+     above and switch to the Kubernetes backend.
 5. Authorize the Drive scopes when prompted.
 6. Copy the **Web app URL** (ends in `/exec`) → this is `PAGEDROP_PUBLISHER_URL`.
 
