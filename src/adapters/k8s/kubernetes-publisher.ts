@@ -1,4 +1,4 @@
-import type { Artifact, ArtifactRef, ArtifactType, Publisher, PublishResult, SharingScope } from "../../core/types";
+import type { Artifact, ArtifactRef, ArtifactType, ProtectionUpdate, Publisher, PublishResult, SharingScope } from "../../core/types";
 import { renderMarkdown } from "../../core/markdown";
 import { wrapHtmlDocument } from "../../core/html";
 import type { HostClient, RemoteItem } from "./host-client";
@@ -24,18 +24,29 @@ export class KubernetesPublisher implements Publisher {
 
   async publish(artifact: Artifact, _scope: SharingScope = "domain"): Promise<PublishResult> {
     const html = this.toHtml(artifact.type, artifact.title, artifact.content);
-    const { id } = await this.client.publish({
+    const { id, password } = await this.client.publish({
       type: artifact.type,
       title: artifact.title,
       html,
       tags: artifact.tags,
+      ttlSeconds: artifact.ttlSeconds,
+      password: artifact.password,
     });
-    return { id, viewUrl: this.viewUrl(id), sharing: "domain" };
+    return { id, viewUrl: this.viewUrl(id), sharing: "domain", ...(password ? { password } : {}) };
   }
 
   async update(id: string, content: string): Promise<PublishResult> {
     await this.client.update(id, { html: wrapHtmlDocument(content, "") });
     return { id, viewUrl: this.viewUrl(id) };
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.client.delete(id);
+  }
+
+  async setProtection(id: string, update: ProtectionUpdate): Promise<PublishResult> {
+    const { password } = await this.client.setProtection(id, update);
+    return { id, viewUrl: this.viewUrl(id), ...(password ? { password } : {}) };
   }
 
   async list(): Promise<ArtifactRef[]> {

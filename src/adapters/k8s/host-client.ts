@@ -69,11 +69,30 @@ export class HostClient {
     return parsed;
   }
 
-  async publish(body: { type: string; title: string; html: string; tags?: string[] }): Promise<{ id: string }> {
-    return (await this.call("POST", "/publish", body)) as { id: string };
+  async publish(body: {
+    type: string;
+    title: string;
+    html: string;
+    tags?: string[];
+    ttlSeconds?: number;
+    password?: string;
+  }): Promise<{ id: string; password?: string }> {
+    return (await this.call("POST", "/publish", body)) as { id: string; password?: string };
   }
   async update(id: string, body: { html: string; title?: string }): Promise<{ id: string }> {
     return (await this.call("PUT", `/artifacts/${encodeURIComponent(id)}`, body)) as { id: string };
+  }
+  async delete(id: string): Promise<{ id: string }> {
+    return (await this.call("DELETE", `/artifacts/${encodeURIComponent(id)}`)) as { id: string };
+  }
+  async setProtection(
+    id: string,
+    body: { password?: string | null; ttlSeconds?: number | null },
+  ): Promise<{ id: string; password?: string }> {
+    return (await this.call("POST", `/artifacts/${encodeURIComponent(id)}/protect`, body)) as {
+      id: string;
+      password?: string;
+    };
   }
   async list(): Promise<{ items: RemoteItem[] }> {
     return (await this.call("GET", "/artifacts")) as unknown as { items: RemoteItem[] };

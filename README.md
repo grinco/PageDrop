@@ -10,26 +10,38 @@ just "publish this and share it."
 
 ## Features
 
-PageDrop exposes six MCP tools:
+PageDrop exposes eight MCP tools:
 
-- **`pagedrop_publish_doc(title, markdown, tags?)`** — converts Markdown into
-  a native Google Doc and returns an edit URL.
-- **`pagedrop_publish_page(title, html, tags?)`** — publishes a full HTML page,
-  rendered via a small Apps Script "renderer" web app, and returns a view URL.
-- **`pagedrop_publish_deck(title, html, tags?)`** — publishes an HTML/reveal.js
-  presentation as a rendered, presentable page (with an optional native
+- **`pagedrop_publish_doc(title, markdown, tags?, ttlSeconds?, password?)`** — converts
+  Markdown into a native Google Doc and returns an edit URL.
+- **`pagedrop_publish_page(title, html, tags?, ttlSeconds?, password?)`** — publishes a
+  full HTML page, rendered via a small Apps Script "renderer" web app, and returns a view URL.
+- **`pagedrop_publish_deck(title, html, tags?, ttlSeconds?, password?)`** — publishes an
+  HTML/reveal.js presentation as a rendered, presentable page (with an optional native
   Google Slides copy), returning a view URL and, if the Slides copy succeeds,
   an edit URL too.
 - **`pagedrop_republish(id, html)`** — replaces the HTML of a previously
   published page or deck while keeping its existing URL.
+- **`pagedrop_delete(id)`** — permanently deletes a published artifact.
+- **`pagedrop_protect(id, password?, ttlSeconds?)`** — sets or clears a viewing
+  password and/or expiry on an existing artifact. Pass `null` to clear a field,
+  omit it to leave it unchanged.
 - **`pagedrop_list()`** — lists everything published to PageDrop so far.
 - **`pagedrop_search(query)`** — searches published artifacts by title or
   content.
 
+> **`ttlSeconds` and `password` are self-hosted (`kubernetes`) features.** On the
+> `appsscript` and `gcp` backends the artifact is a Google Drive file shared via an
+> anonymous link that a password prompt can't honestly gate, so those backends
+> reject `ttlSeconds`/`password` and `pagedrop_delete`/`pagedrop_protect` with a
+> clear "unsupported on this backend" error. `ttlSeconds: 0` means "never expires"
+> (and overrides the server's default TTL); passwords must be at least 8 characters.
+
 ## Backends
 
 PageDrop supports three publishing backends, selected with the `PAGEDROP_BACKEND`
-environment variable. **The six MCP tools work identically whichever you pick.**
+environment variable. **The publishing tools work identically whichever you pick**
+(the TTL/password/delete tools are self-hosted `kubernetes`-only — see the note above).
 
 > **Not sure which to choose? Use the default, `appsscript`.** It needs no
 > Google Cloud account, no billing, and no admin rights — most people,

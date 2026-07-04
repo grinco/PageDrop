@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createStorage, NotFoundError, isValidId } from "../../src/host/storage";
+import { createStorage, NotFoundError, ValidationError, isValidId } from "../../src/host/storage";
 
 let dir: string;
 beforeEach(async () => { dir = await mkdtemp(join(tmpdir(), "pagedrop-store-")); });
@@ -74,5 +74,136 @@ describe("storage list/search", () => {
     expect((await s.search("budget")).map((i) => i.title)).toEqual(["Budget Dashboard"]);
     expect((await s.search("revenue")).map((i) => i.title)).toEqual(["Roadmap"]);
     expect(await s.search("nothing")).toEqual([]);
+  });
+});
+
+describe("storage delete", () => {
+  it("removes both files and 404s afterward; missing id throws NotFound", async () => {
+    const s = createStorage(dir, { suffix: () => "d1" });
+    const { id } = await s.publish({ type: "page", title: "Doomed", html: "<p>x</p>" });
+    await s.delete(id);
+    expect(await s.get(id)).toBeNull();
+    expect(await s.getMeta(id)).toBeNull();
+    expect(await s.list()).toEqual([]);
+    await expect(s.delete(id)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(s.delete("never-existed")).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("deletes a still-on-disk but expired artifact (physical presence, not expiry)", async () => {
+    let clock = Date.parse("2026-01-01T00:00:00.000Z");
+    const s = createStorage(dir, { now: () => new Date(clock).toISOString(), suffix: () => "d2" });
+    const { id } = await s.publish({ type: "page", title: "Old", html: "<p>x</p>", ttlSeconds: 60 });
+    clock += 120_000; // now expired
+    expect(await s.get(id)).toBeNull(); // lazy-hidden from view
+    await s.delete(id); // but still deletable
+    await expect(s.delete(id)).rejects.toBeInstanceOf(NotFoundError);
+  });
+});
+
+describe("storage TTL / expiry", () => {
+  const iso = (ms: number) => new Date(ms).toISOString();
+
+  it("sets expiresAt from ttlSeconds and hides expired from get/list/search", async () => {
+    let clock = Date.parse("2026-01-01T00:00:00.000Z");
+    const s = createStorage(dir, { now: () => iso(clock), suffix: () => "t1" });
+    const { id } = await s.publish({ type: "page", title: "Ephemeral", html: "<p>secret</p>", ttlSeconds: 60 });
+    const meta = await s.getMeta(id);
+    expect(meta?.expiresAt).toBe(iso(clock + 60_000));
+
+    clock += 30_000; // still alive
+    expect(await s.get(id)).toBe("<p>secret</p>");
+    expect((await s.list()).map((m) => m.id)).toContain(id);
+
+    clock += 60_000; // now past expiry
+    expect(await s.get(id)).toBeNull();
+    expect(await s.getMeta(id)).toBeNull();
+    expect(await s.list()).toEqual([]);
+    expect(await s.search("secret")).toEqual([]);
+  });
+
+  it("applies the global default when ttlSeconds is omitted, and 0 means never", async () => {
+    let clock = Date.parse("2026-01-01T00:00:00.000Z");
+    const s = createStorage(dir, {
+      now: () => iso(clock), suffix: () => "t2", defaultTtlSeconds: 100,
+    });
+    const def = await s.publish({ type: "page", title: "Def", html: "<p>d</p>" });
+    expect((await s.getMeta(def.id))?.expiresAt).toBe(iso(clock + 100_000));
+
+    const forever = await s.publish({ type: "page", title: "Keep", html: "<p>k</p>", ttlSeconds: 0 });
+    expect((await s.getMeta(forever.id))?.expiresAt).toBeUndefined();
+
+    clock += 1_000_000;
+    expect(await s.get(def.id)).toBeNull(); // default-TTL one expired
+    expect(await s.get(forever.id)).toBe("<p>k</p>"); // opted out, still here
+  });
+
+  it("rejects a negative ttl", async () => {
+    const s = createStorage(dir, { suffix: () => "t3" });
+    await expect(
+      s.publish({ type: "page", title: "Bad", html: "<p>x</p>", ttlSeconds: -5 }),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it("deleteExpired removes only expired pairs and returns the count", async () => {
+    let clock = Date.parse("2026-01-01T00:00:00.000Z");
+    let n = 0;
+    const s = createStorage(dir, { now: () => iso(clock), suffix: () => `r${n++}` });
+    const gone = await s.publish({ type: "page", title: "Gone", html: "<p>g</p>", ttlSeconds: 10 });
+    const stay = await s.publish({ type: "page", title: "Stay", html: "<p>s</p>" });
+    clock += 20_000;
+    expect(await s.deleteExpired()).toBe(1);
+    // Idempotent: nothing left to reap.
+    expect(await s.deleteExpired()).toBe(0);
+    // Physical files for the expired one are gone; the survivor remains.
+    await expect(s.delete(gone.id)).rejects.toBeInstanceOf(NotFoundError);
+    expect(await s.get(stay.id)).toBe("<p>s</p>");
+  });
+});
+
+describe("storage password protection", () => {
+  it("stores a hashed password on publish; getMeta exposes it, list does not verify", async () => {
+    const s = createStorage(dir, { suffix: () => "p1" });
+    const { id, password } = await s.publish({
+      type: "page", title: "Secret", html: "<p>x</p>", password: "hunter2xx",
+    });
+    expect(password).toBeUndefined(); // caller supplied it; nothing generated
+    const meta = await s.getMeta(id);
+    expect(meta?.password?.salt).toMatch(/^[0-9a-f]{32}$/);
+    expect(meta?.password?.hash).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it("rejects a too-short user-supplied password", async () => {
+    const s = createStorage(dir, { suffix: () => "p2" });
+    await expect(
+      s.publish({ type: "page", title: "Short", html: "<p>x</p>", password: "short" }),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it("auto-generates and returns a passphrase when defaultProtect is on", async () => {
+    const s = createStorage(dir, {
+      suffix: () => "p3", defaultProtect: true, genPassword: () => "river-cloud7moon.stone",
+    });
+    const { id, password } = await s.publish({ type: "page", title: "Auto", html: "<p>x</p>" });
+    expect(password).toBe("river-cloud7moon.stone");
+    expect((await s.getMeta(id))?.password).toBeDefined();
+  });
+
+  it("setProtection sets, clears, and re-times protection", async () => {
+    let clock = Date.parse("2026-01-01T00:00:00.000Z");
+    const s = createStorage(dir, { now: () => new Date(clock).toISOString(), suffix: () => "p4" });
+    const { id } = await s.publish({ type: "page", title: "Mut", html: "<p>x</p>" });
+
+    await s.setProtection(id, { password: "letmein12" });
+    expect((await s.getMeta(id))?.password).toBeDefined();
+
+    await s.setProtection(id, { ttlSeconds: 60 });
+    expect((await s.getMeta(id))?.expiresAt).toBe(new Date(clock + 60_000).toISOString());
+
+    await s.setProtection(id, { password: null, ttlSeconds: null });
+    const meta = await s.getMeta(id);
+    expect(meta?.password).toBeUndefined();
+    expect(meta?.expiresAt).toBeUndefined();
+
+    await expect(s.setProtection("missing-id", { password: "whatever1" })).rejects.toBeInstanceOf(NotFoundError);
   });
 });

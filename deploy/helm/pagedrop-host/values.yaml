@@ -14,6 +14,31 @@ storage:
   size: 1Gi
   # storageClassName: ""   # uncomment to pin a class; PVC is ReadWriteOnce.
 
+# Artifact lifecycle (self-hosted features).
+lifecycle:
+  # Default TTL for artifacts published without an explicit ttlSeconds.
+  # Empty = never expire by default. A publish may still opt out with ttlSeconds: 0.
+  defaultTtlSeconds: ""
+  # How often the background reaper deletes expired artifacts from disk (seconds).
+  reaperIntervalSeconds: 300
+
+# Per-page password protection (self-hosted feature).
+protection:
+  # When true, every publish WITHOUT an explicit password gets an auto-generated
+  # memorable passphrase (four EFF words + separators). Intended for public /
+  # no-SSO installations. REQUIRES a cookieSecret below (the chart will refuse to
+  # render otherwise).
+  defaultProtect: false
+  # Secret used to HMAC-sign page-unlock cookies. STRONGLY RECOMMENDED whenever
+  # passwords are used and MANDATORY when defaultProtect is true — otherwise the
+  # host falls back to a random per-process secret and unlock sessions break on
+  # restart and across replicas (including the brief two-pod overlap of a rolling
+  # update). Set `value` (chart creates a Secret) or point existingSecret at one.
+  cookieSecret:
+    value: ""
+    existingSecret: ""
+    existingSecretKey: cookieSecret
+
 resources:
   requests:
     cpu: 50m

@@ -7,6 +7,8 @@ export interface Artifact {
   content: string; // Markdown for 'doc'; HTML for 'page'/'deck'
   tags?: string[];
   author?: string;
+  ttlSeconds?: number; // self-hosted only: >0 sets expiry, 0 = never, omitted = server default
+  password?: string; // self-hosted only: plaintext, hashed server-side
 }
 
 export interface PublishResult {
@@ -14,6 +16,13 @@ export interface PublishResult {
   viewUrl?: string;
   editUrl?: string;
   sharing?: "domain" | "public";
+  password?: string; // present only when the server auto-generated one
+}
+
+/** Post-hoc protection change. null clears; a value sets; undefined leaves unchanged. */
+export interface ProtectionUpdate {
+  password?: string | null;
+  ttlSeconds?: number | null;
 }
 
 export interface ArtifactRef {
@@ -28,6 +37,8 @@ export interface ArtifactRef {
 export interface Publisher {
   publish(artifact: Artifact, scope?: SharingScope): Promise<PublishResult>;
   update(id: string, content: string): Promise<PublishResult>;
+  delete(id: string): Promise<void>;
+  setProtection(id: string, update: ProtectionUpdate): Promise<PublishResult>;
   list(): Promise<ArtifactRef[]>;
   search(query: string): Promise<ArtifactRef[]>;
   setSharing(id: string, scope: SharingScope): Promise<void>;

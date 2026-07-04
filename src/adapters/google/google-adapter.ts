@@ -1,4 +1,4 @@
-import type { Artifact, ArtifactRef, Publisher, PublishResult, SharingScope } from "../../core/types";
+import type { Artifact, ArtifactRef, ProtectionUpdate, Publisher, PublishResult, SharingScope } from "../../core/types";
 import { renderMarkdown } from "../../core/markdown";
 import { wrapHtmlDocument } from "../../core/html";
 import { GOOGLE_DOC_MIME, type DriveClient, type DriveFile } from "./drive-client";
@@ -20,6 +20,9 @@ export class GoogleAdapter implements Publisher {
   }
 
   async publish(artifact: Artifact, scope: SharingScope = "domain"): Promise<PublishResult> {
+    if (artifact.ttlSeconds !== undefined || artifact.password !== undefined) {
+      throw new Error("unsupported on the Google Drive backend: TTL and password protection require the self-hosted backend");
+    }
     const parent = await this.folder();
     if (artifact.type === "doc") {
       const html = wrapHtmlDocument(renderMarkdown(artifact.content), artifact.title);
@@ -122,5 +125,13 @@ export class GoogleAdapter implements Publisher {
 
   async setSharing(id: string, scope: SharingScope): Promise<void> {
     await this.applySharing(id, scope);
+  }
+
+  async delete(_id: string): Promise<void> {
+    throw new Error("unsupported on the Google Drive backend: deletion requires the self-hosted backend");
+  }
+
+  async setProtection(_id: string, _update: ProtectionUpdate): Promise<PublishResult> {
+    throw new Error("unsupported on the Google Drive backend: password/expiry require the self-hosted backend");
   }
 }
