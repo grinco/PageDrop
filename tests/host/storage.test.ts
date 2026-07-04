@@ -52,3 +52,27 @@ describe("storage publish/get/update", () => {
     await expect(s.update("nope-000000", { html: "x" })).rejects.toBeInstanceOf(NotFoundError);
   });
 });
+
+describe("storage list/search", () => {
+  it("lists newest-first and skips orphaned metadata", async () => {
+    const times = ["2026-01-01T00:00:00.000Z", "2026-03-03T00:00:00.000Z"];
+    let t = 0;
+    const s = createStorage(dir, { now: () => times[Math.min(t++, 1)], suffix: () => `s${t}` });
+    await s.publish({ type: "page", title: "First", html: "<p>1</p>" });
+    await s.publish({ type: "doc", title: "Second", html: "<p>2</p>" });
+    // Orphan: a .json with no matching .html must be ignored.
+    await writeFile(join(dir, "ghost-000000.json"),
+      JSON.stringify({ id: "ghost-000000", title: "Ghost", type: "page", tags: [], createdAt: "x", modifiedAt: "x" }));
+    const items = await s.list();
+    expect(items.map((i) => i.title)).toEqual(["Second", "First"]);
+  });
+
+  it("searches title and HTML content case-insensitively", async () => {
+    const s = createStorage(dir, { suffix: () => Math.random().toString(16).slice(2, 8) });
+    await s.publish({ type: "page", title: "Budget Dashboard", html: "<p>x</p>" });
+    await s.publish({ type: "page", title: "Roadmap", html: "<p>quarterly REVENUE</p>" });
+    expect((await s.search("budget")).map((i) => i.title)).toEqual(["Budget Dashboard"]);
+    expect((await s.search("revenue")).map((i) => i.title)).toEqual(["Roadmap"]);
+    expect(await s.search("nothing")).toEqual([]);
+  });
+});
