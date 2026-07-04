@@ -35,7 +35,14 @@ The **publisher** is anonymous-reachable, so a shared secret is the only gate
 > headless — use the Kubernetes backend instead** (see the main README); it
 > needs no Google credentials or admin toggles.
 
-## A1. Deploy the renderer (org-only viewing)
+> **Personal (non-Workspace / @gmail.com) account?** This backend works great —
+> anonymous deployment is allowed on personal accounts. Two differences: there
+> is no organization, so deploy the **renderer** with **Who has access: Anyone**
+> (the *Anyone within `<org>`* option won't appear), and **leave
+> `PAGEDROP_DOMAIN` unset** so files are shared "anyone with the link". The
+> steps below note this where it matters.
+
+## A1. Deploy the renderer (viewing)
 
 1. Go to https://script.google.com and create a **New project** named
    `PageDrop renderer`.
@@ -48,7 +55,8 @@ The **publisher** is anonymous-reachable, so a shared secret is the only gate
    can copy it manually.)
 3. **Deploy → New deployment → Web app**:
    - Execute as: **Me**
-   - Who has access: **Anyone within <your organization>**
+   - Who has access: **Anyone within <your organization>** on a Workspace
+     account, or **Anyone** on a personal account (no organization exists).
 4. Authorize the Drive scopes when prompted.
 5. Copy the **Web app URL** (ends in `/exec`) → this is `PAGEDROP_RENDERER_URL`.
 
