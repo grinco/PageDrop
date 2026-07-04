@@ -29,7 +29,10 @@ The **publisher** is anonymous-reachable, so a shared secret is the only gate
 
 1. Go to https://script.google.com and create a **New project** named
    `PageDrop renderer`.
-2. Replace `Code.gs` with the contents of `renderer.gs` from this folder.
+2. Open `apps-script/renderer.gs` from your cloned copy of this repo, copy its
+   **entire** contents, and paste them over everything in the editor's default
+   `Code.gs`. (Doing this through Claude? Ask it to print the file's contents,
+   or open the file yourself — it's in the repo you just cloned.)
 3. **Deploy → New deployment → Web app**:
    - Execute as: **Me**
    - Who has access: **Anyone within <your organization>**
@@ -39,15 +42,20 @@ The **publisher** is anonymous-reachable, so a shared secret is the only gate
 ## A2. Deploy the publisher (secret-gated writes)
 
 1. Create a **second** New project named `PageDrop publisher`.
-2. Replace `Code.gs` with the contents of `publisher.gs` from this folder.
+2. Open `apps-script/publisher.gs` from your cloned copy of this repo, copy its
+   **entire** contents, and paste them over everything in the editor's default
+   `Code.gs`. (Doing this through Claude? Ask it to print the file's contents,
+   or open the file yourself.)
 3. **Project Settings → Script Properties → Add script property:**
-   - `PAGEDROP_PUBLISH_SECRET` = a high-entropy secret. Generate one with:
-     ```
-     openssl rand -hex 32
-     ```
-   - `PAGEDROP_FOLDER_NAME` = `PageDrop` (optional; this is the default)
-   - `PAGEDROP_DOMAIN` = `yourcompany.com` (optional; if set, published files
-     are shared domain-with-link instead of anyone-with-link)
+   - `PAGEDROP_PUBLISH_SECRET` (**required**) = a high-entropy secret. Generate
+     one with `openssl rand -hex 32` and paste the result as the **value**. The
+     Script Properties UI **will not save a property with an empty value**, so
+     this must be a real string (not left blank).
+   - `PAGEDROP_FOLDER_NAME` (optional, defaults to `PageDrop`) and
+     `PAGEDROP_DOMAIN` (optional; if set, published files are shared
+     domain-with-link instead of anyone-with-link) — **only add these if you
+     have a value for them.** Leave them out entirely otherwise; the UI won't
+     let you save them blank.
 4. **Deploy → New deployment → Web app**:
    - Execute as: **Me**
    - Who has access: **Anyone**  ← anonymous; the secret is the gate

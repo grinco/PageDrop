@@ -70,8 +70,15 @@ wait for me before moving on.
    already inside the PageDrop repo) and run `npm install` in it.
 2. Walk me through apps-script/DEPLOY.md "Backend A" to create two Google Apps
    Script web apps in my browser — first the renderer, then the publisher.
-   Tell me exactly what to click at each screen, generate the publisher secret
-   for me, and collect PAGEDROP_RENDERER_URL, PAGEDROP_PUBLISHER_URL, and
+   Tell me exactly what to click at each screen. The code to paste is already
+   in the repo I just cloned: for each app, tell me to open the file
+   (apps-script/renderer.gs, then apps-script/publisher.gs), select all, and
+   paste it over the default Code.gs — and print the file's contents for me if
+   I ask. Generate a random publisher secret for me and have me paste it as the
+   PAGEDROP_PUBLISH_SECRET Script Property — the Apps Script UI will not save a
+   blank value, so it must be a real string, and tell me to skip the optional
+   PAGEDROP_FOLDER_NAME/PAGEDROP_DOMAIN properties entirely unless I want them.
+   Collect PAGEDROP_RENDERER_URL, PAGEDROP_PUBLISHER_URL, and
    PAGEDROP_PUBLISH_SECRET from me before continuing.
 3. Copy .mcp.json.example to .mcp.json and fill in those three values (keep
    PAGEDROP_BACKEND as "appsscript"). Never show my secret back to me in full.
