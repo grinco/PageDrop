@@ -26,6 +26,21 @@ PageDrop exposes six MCP tools:
 - **`pagedrop_search(query)`** — searches published artifacts by title or
   content.
 
+## Backends
+
+PageDrop supports two publishing backends, selected with the `PAGEDROP_BACKEND`
+environment variable. The six MCP tools behave the same either way:
+
+- **`appsscript` (default)** — publishes through two small Apps Script web apps
+  and needs **no Google Cloud project or OAuth client**, so it works even on
+  tenants where Google Cloud Platform is disabled in the Workspace admin
+  console.
+- **`gcp`** — calls the Drive and Slides APIs directly via a Google Cloud OAuth
+  client. Adds native Google Doc/Slides copies and Drive full-text search, at
+  the cost of a one-time GCP OAuth setup.
+
+Pick whichever fits your environment; setup for each is below.
+
 ## Install via Claude Code (recommended)
 
 The fastest path is to hand the whole setup to Claude. Copy the block below
@@ -38,15 +53,13 @@ Please set up the PageDrop MCP server for me, end to end:
 
 1. Clone https://github.com/grinco/PageDrop (or use the current checkout if
    I'm already inside the PageDrop repo), then run `npm install` in it.
-2. Walk me, step by step, through deploying the two Apps Script web apps in
-   apps-script/DEPLOY.md — the renderer (org-only) and the publisher
-   (anonymous, secret-gated). That means creating both web apps and getting
-   PAGEDROP_RENDERER_URL, PAGEDROP_PUBLISHER_URL, and generating a
-   PAGEDROP_PUBLISH_SECRET. No Google Cloud project or OAuth client is
-   involved. Wait for me to give you the deployed URLs before moving on.
-3. Copy .mcp.json.example to .mcp.json and fill in the values I gave you
-   (PAGEDROP_PUBLISHER_URL, PAGEDROP_RENDERER_URL, PAGEDROP_PUBLISH_SECRET).
-   Never print my secret back to me in full.
+2. Ask me which backend I want: "appsscript" (default; no Google Cloud project
+   needed) or "gcp" (native Docs/Slides + Drive search, needs a GCP OAuth
+   client). Then walk me, step by step, through the matching setup in
+   apps-script/DEPLOY.md and wait for the values before moving on.
+3. Copy .mcp.json.example to .mcp.json and fill in the values for my chosen
+   backend (set PAGEDROP_BACKEND=gcp if I picked GCP; leave it unset for the
+   default Apps Script backend). Never print my secrets back to me in full.
 4. Tell me to restart or reload Claude Code so the `pagedrop` MCP server
    loads, and wait for me to confirm I've done that.
 5. Once the `pagedrop` tools are available, call `pagedrop_publish_page` with
@@ -59,25 +72,44 @@ assume I know what any of these Google terms mean.
 
 ## Manual setup
 
-If you'd rather do it yourself:
+If you'd rather do it yourself, choose a backend (see [Backends](#backends)),
+then follow the matching option. Full instructions for both live in
+[`apps-script/DEPLOY.md`](apps-script/DEPLOY.md).
 
-1. **Deploy the two web apps.** Follow [`apps-script/DEPLOY.md`](apps-script/DEPLOY.md)
-   to deploy the renderer (org-only) and the publisher (anonymous,
-   secret-gated) and get your `PAGEDROP_RENDERER_URL`, `PAGEDROP_PUBLISHER_URL`,
-   and `PAGEDROP_PUBLISH_SECRET`. No Google Cloud project or OAuth client is
-   needed — this is what lets PageDrop run on tenants where Google Cloud
-   Platform is disabled. Optional Drive folder name and domain-restricted
-   sharing are set as Script Properties on the publisher (see DEPLOY.md).
+### Option A — Apps Script (default, no Google Cloud)
+
+1. **Deploy the two web apps.** Deploy the renderer (org-only) and the publisher
+   (anonymous, secret-gated) to get `PAGEDROP_RENDERER_URL`,
+   `PAGEDROP_PUBLISHER_URL`, and a `PAGEDROP_PUBLISH_SECRET`. Optional Drive
+   folder name and domain-restricted sharing are Script Properties on the
+   publisher.
 2. **Configure the environment.** Copy [`.mcp.json.example`](.mcp.json.example)
-   to `.mcp.json` and fill in:
+   to `.mcp.json`, leave `PAGEDROP_BACKEND` unset (or `appsscript`), and set:
    - `PAGEDROP_PUBLISHER_URL` — the publisher web app URL, ending in `/exec` (required)
    - `PAGEDROP_RENDERER_URL` — the renderer web app URL, ending in `/exec` (required)
    - `PAGEDROP_PUBLISH_SECRET` — the shared secret you set on the publisher (required)
-3. **Connect it to Claude.**
-   - **Claude Code:** place `.mcp.json` in your project root (as above), then
-     restart or reload Claude Code so it picks up the `pagedrop` server.
-   - **claude.ai / Claude Desktop:** add PageDrop as a custom MCP connector
-     using the same command/args/env from `.mcp.json.example`.
+
+### Option B — GCP (direct Drive/Slides API)
+
+1. **Deploy the renderer.** Deploy the renderer web app to get your
+   `PAGEDROP_RENDERER_URL` (rendered pages/decks are still served through it).
+2. **Get OAuth credentials.** Create a Google Cloud OAuth client (Desktop type)
+   with Drive + Slides scopes and run a one-time consent to obtain
+   `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REFRESH_TOKEN`.
+3. **Configure the environment.** Copy [`.mcp.json.example`](.mcp.json.example)
+   to `.mcp.json` and set:
+   - `PAGEDROP_BACKEND=gcp` (required to select this backend)
+   - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN` — OAuth (required)
+   - `PAGEDROP_RENDERER_URL` — the renderer web app URL, ending in `/exec` (required)
+   - `PAGEDROP_FOLDER_NAME` — Drive folder for artifacts (optional, defaults to `PageDrop`)
+   - `PAGEDROP_DOMAIN` — if set, restricts link-sharing to this Workspace domain (optional)
+
+### Connect it to Claude (either backend)
+
+- **Claude Code:** place `.mcp.json` in your project root, then restart or
+  reload Claude Code so it picks up the `pagedrop` server.
+- **claude.ai / Claude Desktop:** add PageDrop as a custom MCP connector using
+  the same command/args/env from `.mcp.json.example`.
 
 ## Usage examples
 
