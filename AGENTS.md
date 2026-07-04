@@ -24,7 +24,11 @@ src/adapters/google/  the Google Workspace adapter (first Publisher impl)
   slides-client.ts       SlidesClient interface
   google-drive-client.ts  real Drive API implementation of DriveClient
   google-slides-client.ts real Slides API implementation of SlidesClient
-  config.ts               env var loading, OAuth client construction
+  apps-script-publisher.ts AppsScriptPublisher implements Publisher (GCP-free,
+                          default wiring): delegates Drive work to the Apps
+                          Script publisher web app
+  publisher-client.ts     PublisherClient — HTTP transport to that web app
+  config.ts               env var loading (publisher + legacy OAuth paths)
 
 src/mcp/tools.ts       registers the six pagedrop_* MCP tools against a
                         PublishService
@@ -78,8 +82,8 @@ source via `tsx`.
 These are user-facing setup docs, not agent instructions, but agents editing
 the server's env-var handling or the renderer should keep them in sync:
 
-- [`apps-script/DEPLOY.md`](apps-script/DEPLOY.md) — deploying the Apps
-  Script renderer web app and obtaining OAuth credentials.
+- [`apps-script/DEPLOY.md`](apps-script/DEPLOY.md) — deploying the two Apps
+  Script web apps (renderer + publisher); GCP-free, no OAuth credentials.
 - [`.mcp.json.example`](.mcp.json.example) — example Claude Code MCP
   configuration (command, args, required env vars) that users copy to
   `.mcp.json`.

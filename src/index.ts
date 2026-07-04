@@ -1,21 +1,16 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { PublishService } from "./core/publish-service.js";
-import { GoogleAdapter } from "./adapters/google/google-adapter.js";
-import { GoogleDriveClient } from "./adapters/google/google-drive-client.js";
-import { GoogleSlidesClient } from "./adapters/google/google-slides-client.js";
-import { createOAuthClient, loadGoogleConfigFromEnv } from "./adapters/google/config.js";
+import { AppsScriptPublisher } from "./adapters/google/apps-script-publisher.js";
+import { PublisherClient } from "./adapters/google/publisher-client.js";
+import { loadPublisherConfigFromEnv } from "./adapters/google/config.js";
 import { registerTools } from "./mcp/tools.js";
 
 async function main(): Promise<void> {
-  const auth = createOAuthClient();
-  const config = loadGoogleConfigFromEnv();
-  const adapter = new GoogleAdapter(
-    new GoogleDriveClient(auth, config.domain),
-    config,
-    new GoogleSlidesClient(auth),
-  );
-  const service = new PublishService(adapter);
+  const config = loadPublisherConfigFromEnv();
+  const client = new PublisherClient(config.publisherUrl, config.secret);
+  const publisher = new AppsScriptPublisher(client, { rendererBaseUrl: config.rendererBaseUrl });
+  const service = new PublishService(publisher);
 
   const server = new McpServer({ name: "pagedrop", version: "0.1.0" });
   registerTools(server as unknown as Parameters<typeof registerTools>[0], service);
