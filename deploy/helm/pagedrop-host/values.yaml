@@ -1,0 +1,50 @@
+image:
+  repository: pagedrop-host
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+# Write-API bearer token. Either set `value` (chart creates a Secret) or point
+# `existingSecret`/`existingSecretKey` at a Secret you manage.
+token:
+  value: ""
+  existingSecret: ""
+  existingSecretKey: token
+
+storage:
+  size: 1Gi
+  # storageClassName: ""   # uncomment to pin a class; PVC is ReadWriteOnce.
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 250m
+    memory: 128Mi
+
+# Viewing ingress — PLACE THIS BEHIND YOUR SSO PROXY via annotations.
+viewIngress:
+  enabled: true
+  className: ""
+  host: pagedrop.internal.example.com
+  annotations: {}   # <-- inject your SSO proxy (oauth2-proxy/Pomerium/etc.) annotations here
+  tls: []
+
+# API ingress — token-gated; the MCP server reaches it.
+# WARNING: this bypasses the SSO proxy. It MUST be internal-only. Prefer
+# leaving it disabled and reaching the Service in-cluster, or restrict it with
+# the NetworkPolicy below and an internal load balancer.
+apiIngress:
+  enabled: false
+  className: ""
+  host: pagedrop-api.internal.example.com
+  annotations: {}
+  tls: []
+
+# NetworkPolicy restricting who can reach the write-API port (8081).
+networkPolicy:
+  enabled: true
+  # CIDRs allowed to reach the API port (e.g. your MCP host / VPN range).
+  allowedCIDRs: []
+  # Pod selectors (namespace-local) allowed to reach the API port.
+  allowedPodSelectors: []

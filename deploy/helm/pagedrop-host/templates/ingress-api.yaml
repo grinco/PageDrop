@@ -1,0 +1,31 @@
+{{- if .Values.apiIngress.enabled }}
+# WARNING: this ingress exposes the token-gated write API and bypasses the SSO
+# proxy. Ensure it is internal-only (private load balancer / restricted CIDRs).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "pagedrop-host.fullname" . }}-api
+  labels:
+    {{- include "pagedrop-host.labels" . | nindent 4 }}
+  annotations:
+    {{- toYaml .Values.apiIngress.annotations | nindent 4 }}
+spec:
+  {{- with .Values.apiIngress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.apiIngress.host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "pagedrop-host.fullname" . }}
+                port:
+                  name: api
+  {{- with .Values.apiIngress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

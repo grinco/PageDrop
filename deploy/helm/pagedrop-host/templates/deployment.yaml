@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pagedrop-host.fullname" . }}
+  labels:
+    {{- include "pagedrop-host.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "pagedrop-host.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "pagedrop-host.selectorLabels" . | nindent 8 }}
+    spec:
+      securityContext:
+        fsGroup: 1000
+      containers:
+        - name: host
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: view
+              containerPort: 8080
+            - name: api
+              containerPort: 8081
+          env:
+            - name: PAGEDROP_HOST_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pagedrop-host.secretName" . }}
+                  key: {{ include "pagedrop-host.secretKey" . }}
+            - name: PAGEDROP_HOST_DATA_DIR
+              value: /data
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: view
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: view
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "pagedrop-host.fullname" . }}-data
