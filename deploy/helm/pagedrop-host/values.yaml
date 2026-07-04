@@ -1,0 +1,64 @@
+image:
+  repository: pagedrop-host
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+# Write-API bearer token. Either set `value` (chart creates a Secret) or point
+# `existingSecret`/`existingSecretKey` at a Secret you manage.
+token:
+  value: ""
+  existingSecret: ""
+  existingSecretKey: token
+
+storage:
+  size: 1Gi
+  # storageClassName: ""   # uncomment to pin a class; PVC is ReadWriteOnce.
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 250m
+    memory: 128Mi
+
+# Viewing ingress — PLACE THIS BEHIND YOUR SSO PROXY via annotations.
+# Disabled by default: enabling it without SSO-proxy annotations would expose
+# published pages to the internet unauthenticated. Enable it explicitly
+# together with your proxy annotations (see README.md).
+viewIngress:
+  enabled: false
+  className: ""
+  host: pagedrop.internal.example.com
+  annotations: {}   # <-- inject your SSO proxy (oauth2-proxy/Pomerium/etc.) annotations here
+  tls: []
+
+# API ingress — token-gated; the MCP server reaches it.
+# WARNING: this bypasses the SSO proxy. It MUST be internal-only. Prefer
+# leaving it disabled and reaching the Service in-cluster, or restrict it with
+# the NetworkPolicy below and an internal load balancer.
+apiIngress:
+  enabled: false
+  className: ""
+  host: pagedrop-api.internal.example.com
+  annotations: {}
+  tls: []
+
+# NetworkPolicy restricting who can reach the write-API port (8081).
+# The write API is DENY-BY-DEFAULT: with both allow-lists below empty, no
+# ingress rule for port 8081 is rendered at all, so it is unreachable. You
+# MUST set allowedCIDRs and/or allowedPodSelectors to permit your MCP
+# client's source (or set networkPolicy.enabled=false to disable the policy
+# entirely and rely on other network controls).
+networkPolicy:
+  enabled: true
+  # CIDRs allowed to reach the API port (e.g. your MCP host / VPN range).
+  allowedCIDRs: []
+  # Pod selectors (namespace-local) allowed to reach the API port.
+  allowedPodSelectors: []
+  # Optional restriction on who can reach the viewing port (8080) directly.
+  # Leaving both of these empty leaves port 8080 reachable by ANY in-cluster
+  # pod: SSO only fronts the ingress, it does not gate pod-to-pod traffic.
+  # Set one or both to restrict direct access to your SSO proxy's source.
+  viewAllowedCIDRs: []
+  viewAllowedPodSelectors: []

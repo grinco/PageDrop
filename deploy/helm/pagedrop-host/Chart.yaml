@@ -1,0 +1,6 @@
+apiVersion: v2
+name: pagedrop-host
+description: PageDrop Kubernetes static-host backend (viewing behind SSO + token-gated write API)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

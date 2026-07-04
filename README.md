@@ -28,46 +28,62 @@ PageDrop exposes six MCP tools:
 
 ## Backends
 
-PageDrop supports two publishing backends, selected with the `PAGEDROP_BACKEND`
-environment variable. The six MCP tools behave the same either way:
+PageDrop supports three publishing backends, selected with the `PAGEDROP_BACKEND`
+environment variable. **The six MCP tools work identically whichever you pick.**
 
-- **`appsscript` (default)** — publishes through two small Apps Script web apps
-  and needs **no Google Cloud project or OAuth client**, so it works even on
-  tenants where Google Cloud Platform is disabled in the Workspace admin
-  console.
-- **`gcp`** — calls the Drive and Slides APIs directly via a Google Cloud OAuth
-  client. Adds native Google Doc/Slides copies and Drive full-text search, at
-  the cost of a one-time GCP OAuth setup.
+> **Not sure which to choose? Use the default, `appsscript`.** It needs no
+> Google Cloud account, no billing, and no admin rights — most people,
+> especially first-timers, should start here. The rest of this guide assumes
+> it unless noted.
 
-Pick whichever fits your environment; setup for each is below.
+- **`appsscript` — the default, recommended for everyone starting out.**
+  Publishes through two small Google Apps Script web apps you create in your
+  browser (Claude can walk you through it). Needs **no Google Cloud project, no
+  OAuth client, no billing** — it even works on Workspace tenants where Google
+  Cloud Platform is disabled.
+- **`gcp` (advanced)** — calls the Drive and Slides APIs directly via a Google
+  Cloud OAuth client. Adds native Google Doc/Slides copies and Drive full-text
+  search, but requires a one-time Google Cloud OAuth setup.
+- **`kubernetes` (advanced, self-hosted)** — publishes to a PageDrop host
+  service you run on your own Kubernetes cluster, with viewing behind your SSO
+  proxy. Best HTML/CSS/JS fidelity and clean internal URLs; no native
+  Docs/Slides copies or Drive search. See
+  [`deploy/helm/pagedrop-host/README.md`](deploy/helm/pagedrop-host/README.md).
 
 ## Install via Claude Code (recommended)
 
-The fastest path is to hand the whole setup to Claude. Copy the block below
-into Claude Code and it will clone the repo, install dependencies, walk you
-through the one-time Google setup, wire up the MCP connection, and publish a
-test page so you know it worked.
+**New to this? This is the easy path — no developer or Google Cloud experience
+needed.** Paste the block below into Claude Code (or Claude Desktop). Claude
+does the whole thing: clones the repo, installs it, walks you through the
+one-time Google setup **in plain language, one step at a time**, wires up the
+connection, and publishes a test page so you can see it working. You don't need
+to understand any of the Google terms — Claude will explain each click and wait
+for you.
 
 ```
-Please set up the PageDrop MCP server for me, end to end:
+Please set up the PageDrop MCP server for me, end to end, using the default
+Apps Script backend (no Google Cloud account or billing needed). I'm not a
+developer — explain each step in plain language, do ONE step at a time, and
+wait for me before moving on.
 
-1. Clone https://github.com/grinco/PageDrop (or use the current checkout if
-   I'm already inside the PageDrop repo), then run `npm install` in it.
-2. Ask me which backend I want: "appsscript" (default; no Google Cloud project
-   needed) or "gcp" (native Docs/Slides + Drive search, needs a GCP OAuth
-   client). Then walk me, step by step, through the matching setup in
-   apps-script/DEPLOY.md and wait for the values before moving on.
-3. Copy .mcp.json.example to .mcp.json and fill in the values for my chosen
-   backend (set PAGEDROP_BACKEND=gcp if I picked GCP; leave it unset for the
-   default Apps Script backend). Never print my secrets back to me in full.
-4. Tell me to restart or reload Claude Code so the `pagedrop` MCP server
-   loads, and wait for me to confirm I've done that.
-5. Once the `pagedrop` tools are available, call `pagedrop_publish_page` with
-   title "PageDrop Hello World" and a small self-contained HTML page that
-   says hello. Report back the shareable view URL it returns so I can open it.
+1. Clone https://github.com/grinco/PageDrop (or use the current folder if I'm
+   already inside the PageDrop repo) and run `npm install` in it.
+2. Walk me through apps-script/DEPLOY.md "Backend A" to create two Google Apps
+   Script web apps in my browser — first the renderer, then the publisher.
+   Tell me exactly what to click at each screen, generate the publisher secret
+   for me, and collect PAGEDROP_RENDERER_URL, PAGEDROP_PUBLISHER_URL, and
+   PAGEDROP_PUBLISH_SECRET from me before continuing.
+3. Copy .mcp.json.example to .mcp.json and fill in those three values (keep
+   PAGEDROP_BACKEND as "appsscript"). Never show my secret back to me in full.
+4. Tell me to fully quit and reopen Claude Code/Desktop so the `pagedrop`
+   server loads, and wait for me to confirm.
+5. Once the pagedrop tools appear, call `pagedrop_publish_page` with the title
+   "PageDrop Hello World" and a small hello-world HTML page, then give me the
+   shareable link so I can open it.
 
-Go step by step, confirm each stage with me before continuing, and don't
-assume I know what any of these Google terms mean.
+Only if I explicitly say I need native Google Docs/Slides editing or Drive
+search: switch me to the "gcp" backend and follow apps-script/DEPLOY.md
+"Backend B" instead. Otherwise stick with the default Apps Script setup.
 ```
 
 ## Manual setup
@@ -104,7 +120,19 @@ then follow the matching option. Full instructions for both live in
    - `PAGEDROP_FOLDER_NAME` — Drive folder for artifacts (optional, defaults to `PageDrop`)
    - `PAGEDROP_DOMAIN` — if set, restricts link-sharing to this Workspace domain (optional)
 
-### Connect it to Claude (either backend)
+### Option C — Kubernetes (self-hosted static host)
+
+1. **Deploy the host service.** Build the image from the repo `Dockerfile`,
+   push it to your registry, and install the Helm chart
+   ([`deploy/helm/pagedrop-host`](deploy/helm/pagedrop-host)). Place the viewing
+   ingress behind your SSO proxy; keep the write API internal-only.
+2. **Configure the environment.** Copy `.mcp.json.example` to `.mcp.json` and set:
+   - `PAGEDROP_BACKEND=kubernetes`
+   - `PAGEDROP_K8S_API_URL` — the write-API base URL (ends in `/api`)
+   - `PAGEDROP_K8S_BASE_URL` — the public viewing base URL (used to build `/p/<id>` links)
+   - `PAGEDROP_K8S_TOKEN` — the same token you set on the host service
+
+### Connect it to Claude (any backend)
 
 - **Claude Code:** place `.mcp.json` in your project root, then restart or
   reload Claude Code so it picks up the `pagedrop` server.
