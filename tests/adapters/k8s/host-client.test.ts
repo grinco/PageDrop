@@ -54,4 +54,12 @@ describe("HostClient", () => {
     const client = new HostClient("https://api.internal/api", "tok", fetchFn);
     await expect(client.list()).rejects.toBeInstanceOf(K8sHostError);
   });
+
+  it("maps a generic (non-timeout) network failure to a K8sHostError", async () => {
+    const fetchFn = async () => {
+      throw new TypeError("fetch failed");
+    };
+    const client = new HostClient("https://api.internal/api", "tok", fetchFn);
+    await expect(client.list()).rejects.toBeInstanceOf(K8sHostError);
+  });
 });
