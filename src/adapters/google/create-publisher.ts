@@ -5,8 +5,11 @@ import { GoogleAdapter } from "./google-adapter";
 import { GoogleDriveClient } from "./google-drive-client";
 import { GoogleSlidesClient } from "./google-slides-client";
 import { createOAuthClient, loadGoogleConfigFromEnv, loadPublisherConfigFromEnv } from "./config";
+import { KubernetesPublisher } from "../k8s/kubernetes-publisher";
+import { HostClient } from "../k8s/host-client";
+import { loadK8sConfigFromEnv } from "../k8s/config";
 
-export type Backend = "appsscript" | "gcp";
+export type Backend = "appsscript" | "gcp" | "kubernetes";
 
 /**
  * Builds the configured {@link Publisher} backend.
@@ -33,9 +36,14 @@ export function createPublisher(): Publisher {
         new GoogleSlidesClient(auth),
       );
     }
+    case "kubernetes": {
+      const config = loadK8sConfigFromEnv();
+      const client = new HostClient(config.apiUrl, config.token);
+      return new KubernetesPublisher(client, { baseUrl: config.baseUrl });
+    }
     default:
       throw new Error(
-        `Unknown PAGEDROP_BACKEND "${backend}"; valid values are "appsscript" (default) or "gcp"`,
+        `Unknown PAGEDROP_BACKEND "${backend}"; valid values are "appsscript" (default), "gcp", or "kubernetes"`,
       );
   }
 }

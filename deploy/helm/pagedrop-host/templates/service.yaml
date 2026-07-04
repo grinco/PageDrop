@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "pagedrop-host.fullname" . }}
+  labels:
+    {{- include "pagedrop-host.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "pagedrop-host.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: view
+      port: 8080
+      targetPort: view
+    - name: api
+      port: 8081
+      targetPort: api
