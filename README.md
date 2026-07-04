@@ -28,8 +28,8 @@ PageDrop exposes six MCP tools:
 
 ## Backends
 
-PageDrop supports two publishing backends, selected with the `PAGEDROP_BACKEND`
-environment variable. The six MCP tools behave the same either way:
+PageDrop supports three publishing backends, selected with the `PAGEDROP_BACKEND`
+environment variable. The six MCP tools behave the same whichever you pick:
 
 - **`appsscript` (default)** — publishes through two small Apps Script web apps
   and needs **no Google Cloud project or OAuth client**, so it works even on
@@ -120,7 +120,7 @@ then follow the matching option. Full instructions for both live in
    - `PAGEDROP_K8S_BASE_URL` — the public viewing base URL (used to build `/p/<id>` links)
    - `PAGEDROP_K8S_TOKEN` — the same token you set on the host service
 
-### Connect it to Claude (either backend)
+### Connect it to Claude (any backend)
 
 - **Claude Code:** place `.mcp.json` in your project root, then restart or
   reload Claude Code so it picks up the `pagedrop` server.
