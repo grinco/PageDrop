@@ -3,14 +3,19 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "bin": { "pagedrop": "src/index.ts" },
+  "bin": {
+    "pagedrop": "src/index.ts"
+  },
   "scripts": {
     "start": "tsx src/index.ts",
     "dev": "tsx src/index.ts",
     "host": "tsx src/host/main.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "copy:renderer": "node scripts/clip.mjs apps-script/renderer.gs",
+    "copy:publisher": "node scripts/clip.mjs apps-script/publisher.gs",
+    "gen:secret": "node scripts/gen-secret.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
