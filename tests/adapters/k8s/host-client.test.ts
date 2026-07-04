@@ -62,4 +62,42 @@ describe("HostClient", () => {
     const client = new HostClient("https://api.internal/api", "tok", fetchFn);
     await expect(client.list()).rejects.toBeInstanceOf(K8sHostError);
   });
+
+  it("forwards ttlSeconds and password on publish and returns a generated password", async () => {
+    let sent: unknown;
+    const fetchFn = async (_url: string, init: { body?: string }) => {
+      sent = JSON.parse(init.body as string);
+      return res({ id: "q3-abc123", password: "river-cloud7moon.stone" }, 201);
+    };
+    const client = new HostClient("https://api.internal/api", "tok", fetchFn);
+    const out = await client.publish({ type: "page", title: "Q3", html: "<h1>x</h1>", ttlSeconds: 60, password: "opensesame" });
+    expect(sent).toMatchObject({ ttlSeconds: 60, password: "opensesame" });
+    expect(out.password).toBe("river-cloud7moon.stone");
+  });
+
+  it("DELETEs an artifact by id", async () => {
+    const calls: { url: string; init: { method: string } }[] = [];
+    const fetchFn = async (url: string, init: { method: string }) => {
+      calls.push({ url, init });
+      return res({ id: "gone-1" });
+    };
+    const client = new HostClient("https://api.internal/api", "tok", fetchFn);
+    await client.delete("gone-1");
+    expect(calls[0].init.method).toBe("DELETE");
+    expect(calls[0].url).toBe("https://api.internal/api/artifacts/gone-1");
+  });
+
+  it("POSTs setProtection to the /protect subresource", async () => {
+    const calls: { url: string; init: { method: string; body?: string } }[] = [];
+    const fetchFn = async (url: string, init: { method: string; body?: string }) => {
+      calls.push({ url, init });
+      return res({ id: "p1", password: "gen" });
+    };
+    const client = new HostClient("https://api.internal/api", "tok", fetchFn);
+    const out = await client.setProtection("p1", { password: null, ttlSeconds: 60 });
+    expect(calls[0].init.method).toBe("POST");
+    expect(calls[0].url).toBe("https://api.internal/api/artifacts/p1/protect");
+    expect(JSON.parse(calls[0].init.body as string)).toEqual({ password: null, ttlSeconds: 60 });
+    expect(out.password).toBe("gen");
+  });
 });

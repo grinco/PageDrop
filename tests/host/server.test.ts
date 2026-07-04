@@ -63,6 +63,118 @@ describe("host write API", () => {
     expect((await fetch(`${base}/healthz`)).status).toBe(200);
     expect((await fetch(`${base}/readyz`)).status).toBe(200);
   });
+
+  it("deletes an artifact and 404s on a repeat or unknown id", async () => {
+    const { id } = await (await fetch(`${base}/api/publish`, {
+      method: "POST", headers: auth, body: JSON.stringify({ type: "page", title: "Doomed", html: "<p>x</p>" }),
+    })).json();
+    const del = await fetch(`${base}/api/artifacts/${id}`, { method: "DELETE", headers: auth });
+    expect(del.status).toBe(200);
+    expect((await del.json()).id).toBe(id);
+    expect((await fetch(`${base}/api/artifacts/${id}`, { method: "DELETE", headers: auth })).status).toBe(404);
+    expect((await fetch(`${base}/api/artifacts/missing-000000`, { method: "DELETE", headers: auth })).status).toBe(404);
+  });
+
+  it("rejects delete without a token", async () => {
+    expect((await fetch(`${base}/api/artifacts/whatever`, { method: "DELETE" })).status).toBe(401);
+  });
+
+  it("400s on an invalid password or ttl", async () => {
+    const short = await fetch(`${base}/api/publish`, {
+      method: "POST", headers: auth, body: JSON.stringify({ type: "page", title: "S", html: "<p>x</p>", password: "short" }),
+    });
+    expect(short.status).toBe(400);
+    const negTtl = await fetch(`${base}/api/publish`, {
+      method: "POST", headers: auth, body: JSON.stringify({ type: "page", title: "S", html: "<p>x</p>", ttlSeconds: -1 }),
+    });
+    expect(negTtl.status).toBe(400);
+  });
+
+  it("never leaks the password hash; exposes protected + expiresAt in listings", async () => {
+    await fetch(`${base}/api/publish`, {
+      method: "POST", headers: auth,
+      body: JSON.stringify({ type: "page", title: "Locked", html: "<p>x</p>", password: "opensesame" }),
+    });
+    const list = await (await fetch(`${base}/api/artifacts`, { headers: auth })).json();
+    expect(list.items).toHaveLength(1);
+    const item = list.items[0];
+    expect(item.protected).toBe(true);
+    expect("password" in item).toBe(false);
+    expect(item).toHaveProperty("expiresAt");
+  });
+
+  it("sets protection on an existing artifact via /protect", async () => {
+    const { id } = await (await fetch(`${base}/api/publish`, {
+      method: "POST", headers: auth, body: JSON.stringify({ type: "page", title: "Mut", html: "<p>x</p>" }),
+    })).json();
+    const res = await fetch(`${base}/api/artifacts/${id}/protect`, {
+      method: "POST", headers: auth, body: JSON.stringify({ password: "letmein12", ttlSeconds: 3600 }),
+    });
+    expect(res.status).toBe(200);
+    const list = await (await fetch(`${base}/api/artifacts`, { headers: auth })).json();
+    expect(list.items[0].protected).toBe(true);
+    expect((await fetch(`${base}/api/artifacts/missing/protect`, {
+      method: "POST", headers: auth, body: JSON.stringify({ password: "letmein12" }),
+    })).status).toBe(404);
+  });
+});
+
+import { createViewHandler as makeView } from "../../src/host/server";
+
+describe("password-protected viewing", () => {
+  it("gates a protected page behind a form, then unlocks with a signed cookie", async () => {
+    const storage = createStorage(dir);
+    const { id } = await storage.publish({ type: "page", title: "Secret", html: "<h1>classified</h1>", password: "opensesame" });
+    const view = createServer(makeView(storage, dir, { cookieSecret: "sekret", failDelayMs: 0 }));
+    await new Promise<void>((r) => view.listen(0, "127.0.0.1", r));
+    const addr = view.address();
+    const vbase = typeof addr === "object" && addr ? `http://127.0.0.1:${addr.port}` : "";
+
+    // No cookie → password form, not the content.
+    const locked = await fetch(`${vbase}/p/${id}`);
+    expect(locked.status).toBe(401);
+    const form = await locked.text();
+    expect(form).toContain('name="password"');
+    expect(form).not.toContain("classified");
+
+    // Wrong password → still locked.
+    const wrong = await fetch(`${vbase}/p/${id}`, {
+      method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "password=nope", redirect: "manual",
+    });
+    expect(wrong.status).toBe(401);
+
+    // Right password → redirect + Set-Cookie.
+    const ok = await fetch(`${vbase}/p/${id}`, {
+      method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "password=opensesame", redirect: "manual",
+    });
+    expect(ok.status).toBe(302);
+    const cookie = ok.headers.get("set-cookie") ?? "";
+    expect(cookie).toContain(`pd_auth_${id}=`);
+    expect(cookie.toLowerCase()).toContain("httponly");
+
+    // Present the cookie → content served.
+    const jar = cookie.split(";")[0];
+    const unlocked = await fetch(`${vbase}/p/${id}`, { headers: { Cookie: jar } });
+    expect(unlocked.status).toBe(200);
+    expect(await unlocked.text()).toBe("<h1>classified</h1>");
+
+    await new Promise<void>((r) => view.close(() => r()));
+  });
+
+  it("still serves unprotected pages directly", async () => {
+    const storage = createStorage(dir);
+    const { id } = await storage.publish({ type: "page", title: "Open", html: "<h1>public</h1>" });
+    const view = createServer(makeView(storage, dir, { cookieSecret: "sekret", failDelayMs: 0 }));
+    await new Promise<void>((r) => view.listen(0, "127.0.0.1", r));
+    const addr = view.address();
+    const vbase = typeof addr === "object" && addr ? `http://127.0.0.1:${addr.port}` : "";
+    const page = await fetch(`${vbase}/p/${id}`);
+    expect(page.status).toBe(200);
+    expect(await page.text()).toBe("<h1>public</h1>");
+    await new Promise<void>((r) => view.close(() => r()));
+  });
 });
 
 import { createViewHandler } from "../../src/host/server";

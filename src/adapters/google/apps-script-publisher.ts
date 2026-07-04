@@ -1,4 +1,4 @@
-import type { Artifact, ArtifactRef, ArtifactType, Publisher, PublishResult, SharingScope } from "../../core/types";
+import type { Artifact, ArtifactRef, ArtifactType, ProtectionUpdate, Publisher, PublishResult, SharingScope } from "../../core/types";
 import { renderMarkdown } from "../../core/markdown";
 import { wrapHtmlDocument } from "../../core/html";
 import { buildViewUrl } from "./config";
@@ -28,6 +28,9 @@ export class AppsScriptPublisher implements Publisher {
   ) {}
 
   async publish(artifact: Artifact, scope: SharingScope = "domain"): Promise<PublishResult> {
+    if (artifact.ttlSeconds !== undefined || artifact.password !== undefined) {
+      throw new Error("unsupported on the Apps Script backend: TTL and password protection require the self-hosted backend");
+    }
     const html = this.toHtml(artifact.type, artifact.title, artifact.content);
     const data = await this.rpc.call("publish", {
       type: artifact.type,
@@ -48,6 +51,16 @@ export class AppsScriptPublisher implements Publisher {
     const html = wrapHtmlDocument(content, "");
     await this.rpc.call("update", { id, html });
     return { id, viewUrl: buildViewUrl(this.config.rendererBaseUrl, id) };
+  }
+
+  async delete(_id: string): Promise<void> {
+    // Drive files are shared via ANYONE_WITH_LINK; lifecycle ops live on the
+    // self-hosted backend where they can be enforced.
+    throw new Error("unsupported on the Apps Script backend: deletion requires the self-hosted backend");
+  }
+
+  async setProtection(_id: string, _update: ProtectionUpdate): Promise<PublishResult> {
+    throw new Error("unsupported on the Apps Script backend: password/expiry require the self-hosted backend");
   }
 
   async list(): Promise<ArtifactRef[]> {

@@ -16,6 +16,28 @@ class FakeRpc implements PublisherRpc {
 
 const config = { rendererBaseUrl: "https://script.google.com/exec" };
 
+describe("AppsScriptPublisher — unsupported lifecycle/protection ops", () => {
+  it("rejects delete and setProtection as unsupported on this backend", async () => {
+    const rpc = new FakeRpc();
+    const publisher = new AppsScriptPublisher(rpc, config);
+    await expect(publisher.delete("file-1")).rejects.toThrow(/unsupported/i);
+    await expect(publisher.setProtection("file-1", { password: "x" })).rejects.toThrow(/unsupported/i);
+    expect(rpc.calls).toHaveLength(0); // never round-trips to Apps Script
+  });
+
+  it("rejects publish when ttlSeconds or password is supplied", async () => {
+    const rpc = new FakeRpc();
+    const publisher = new AppsScriptPublisher(rpc, config);
+    await expect(
+      publisher.publish({ type: "page", title: "T", content: "<h1>x</h1>", ttlSeconds: 60 }),
+    ).rejects.toThrow(/unsupported/i);
+    await expect(
+      publisher.publish({ type: "page", title: "T", content: "<h1>x</h1>", password: "opensesame" }),
+    ).rejects.toThrow(/unsupported/i);
+    expect(rpc.calls).toHaveLength(0);
+  });
+});
+
 describe("AppsScriptPublisher — publish", () => {
   it("sends a page as wrapped HTML and composes a renderer view URL", async () => {
     const rpc = new FakeRpc();

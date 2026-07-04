@@ -11,8 +11,9 @@ backend-neutral:
 
 ```
 src/core/            backend-neutral core
-  types.ts             Artifact, PublishResult, ArtifactRef, and the
-                        Publisher interface every backend adapter implements
+  types.ts             Artifact, PublishResult, ArtifactRef, ProtectionUpdate,
+                        and the Publisher interface every backend adapter
+                        implements (publish/update/delete/setProtection/…)
   publish-service.ts   PublishService: validation + orchestration, talks
                         only to a Publisher, no Google-specific code
   markdown.ts           Markdown helpers (used for pagedrop_publish_doc)
@@ -38,9 +39,14 @@ src/adapters/k8s/     the Kubernetes static-host adapter (kubernetes backend)
   config.ts               loadK8sConfigFromEnv
 src/host/             the deployable host service (PVC store + two-port server)
   storage.ts server.ts config.ts main.ts
+  password.ts             scrypt hash + constant-time verify (protected pages)
+  cookie.ts               HMAC-signed, id-bound, time-limited unlock tokens
+  passphrase.ts           memorable auto-generated passphrases (default-protect)
+  wordlist.ts             bundled EFF short wordlist (1296 words, CC BY 3.0)
 
-src/mcp/tools.ts       registers the six pagedrop_* MCP tools against a
-                        PublishService
+src/mcp/tools.ts       registers the eight pagedrop_* MCP tools against a
+                        PublishService (publish_doc/page/deck, republish, list,
+                        search, delete, protect)
 src/index.ts           entrypoint: wires createPublisher() + PublishService +
                         registerTools, connects over stdio
 
