@@ -17,7 +17,19 @@ export interface HostConfig {
   cookieSecure: boolean;
   /** When true, publishes without an explicit password get an auto-generated one. */
   defaultProtect: boolean;
+  /**
+   * Max accepted request-body size for the write API, in bytes. Must be large
+   * enough to carry a page/deck with inlined base64 images: the core allows up
+   * to `maxTotalBytes` (default 24 MB) of decoded image data, which is ~32 MB
+   * once base64-encoded and embedded in the HTML. The default (40 MiB) covers
+   * that with headroom; raise it in step with `PAGEDROP_MAX_TOTAL_IMAGE_BYTES`
+   * (and the ingress `proxy-body-size`) if you lift the image limits.
+   */
+  maxBodyBytes: number;
 }
+
+/** Default write-API body cap. See {@link HostConfig.maxBodyBytes}. */
+const DEFAULT_MAX_BODY_BYTES = 40 * 1024 * 1024;
 
 function boolEnv(v: string | undefined): boolean {
   return v === "true" || v === "1";
@@ -60,5 +72,6 @@ export function loadHostConfigFromEnv(): HostConfig {
     cookieSecret,
     cookieSecure: boolEnvDefaultTrue(process.env.PAGEDROP_COOKIE_SECURE),
     defaultProtect,
+    maxBodyBytes: numEnv(process.env.PAGEDROP_HOST_MAX_BODY_BYTES) ?? DEFAULT_MAX_BODY_BYTES,
   };
 }

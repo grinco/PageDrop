@@ -133,6 +133,50 @@ describe("host write API", () => {
   });
 });
 
+// The write API accepts a configurable request-body cap so inlined-image pages
+// (up to tens of MB) are not rejected by the old hardcoded 1 MB ceiling.
+describe("host write API request-body cap", () => {
+  async function withCappedApi(
+    maxBodyBytes: number,
+    run: (base: string) => Promise<void>,
+  ): Promise<void> {
+    const d = await mkdtemp(join(tmpdir(), "pagedrop-cap-"));
+    const s = createServer(createApiHandler(createStorage(d), TOKEN, undefined, maxBodyBytes));
+    await new Promise<void>((r) => s.listen(0, "127.0.0.1", r));
+    const addr = s.address();
+    const b = typeof addr === "object" && addr ? `http://127.0.0.1:${addr.port}` : "";
+    try {
+      await run(b);
+    } finally {
+      await new Promise<void>((r) => s.close(() => r()));
+      await rm(d, { recursive: true, force: true });
+    }
+  }
+
+  it("rejects a body over the configured cap with a 400 bad_request", async () => {
+    await withCappedApi(512, async (b) => {
+      const res = await fetch(`${b}/api/publish`, {
+        method: "POST", headers: auth,
+        body: JSON.stringify({ type: "page", title: "Big", html: "<p>" + "x".repeat(1000) + "</p>" }),
+      });
+      expect(res.status).toBe(400);
+      expect((await res.json()).error.code).toBe("bad_request");
+    });
+  });
+
+  it("accepts a multi-megabyte body when the cap is raised above 1 MB", async () => {
+    await withCappedApi(8 * 1024 * 1024, async (b) => {
+      // ~3 MB of HTML — comfortably past the old 1 MB hard cap.
+      const html = "<p>" + "a".repeat(3 * 1024 * 1024) + "</p>";
+      const res = await fetch(`${b}/api/publish`, {
+        method: "POST", headers: auth,
+        body: JSON.stringify({ type: "page", title: "Roomy", html }),
+      });
+      expect(res.status).toBe(201);
+    });
+  });
+});
+
 import { createViewHandler as makeView } from "../../src/host/server";
 
 describe("password-protected viewing", () => {

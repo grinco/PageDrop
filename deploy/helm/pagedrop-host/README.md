@@ -78,6 +78,29 @@ a specific artifact out of the default with `ttlSeconds: 0` ("never"). Artifacts
 can also be removed explicitly via `DELETE /api/artifacts/:id` (the
 `pagedrop_delete` MCP tool).
 
+## Inline images and the request-body cap
+
+`pagedrop_publish_page` / `_deck` / `_republish` accept an `images[]` array whose
+base64 payloads the MCP server inlines into the HTML before publishing. The
+resulting body can be tens of MB (the core default allows ~24 MB of image data,
+~32 MB once base64-encoded). The write API therefore accepts a configurable body
+cap, defaulting to 40 MiB:
+
+```
+--set limits.maxBodyBytes=41943040   # bytes; empty = host default (40 MiB)
+```
+
+If you expose the write API through an ingress, raise its proxy body-size limit
+to match — otherwise the proxy rejects large publishes before they reach the
+host. For the nginx ingress:
+
+```
+--set-string apiIngress.annotations.'nginx\.ingress\.kubernetes\.io/proxy-body-size'=40m
+```
+
+Keep `limits.maxBodyBytes`, the ingress `proxy-body-size`, and the MCP server's
+`PAGEDROP_MAX_TOTAL_IMAGE_BYTES` in step if you tune any of them.
+
 ## Password-protected pages
 
 Pages can be gated by a per-artifact password, enforced by the view server:
