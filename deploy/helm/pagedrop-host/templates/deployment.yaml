@@ -44,6 +44,10 @@ spec:
             {{- end }}
             - name: PAGEDROP_REAPER_INTERVAL_SECONDS
               value: {{ .Values.lifecycle.reaperIntervalSeconds | quote }}
+            {{- with .Values.limits.maxBodyBytes }}
+            - name: PAGEDROP_HOST_MAX_BODY_BYTES
+              value: {{ . | quote }}
+            {{- end }}
             - name: PAGEDROP_DEFAULT_PROTECT
               value: {{ .Values.protection.defaultProtect | quote }}
             - name: PAGEDROP_COOKIE_SECURE

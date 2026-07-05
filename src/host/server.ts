@@ -46,8 +46,8 @@ async function readRawBody(req: IncomingMessage, maxBytes: number): Promise<stri
   return Buffer.concat(chunks).toString("utf8");
 }
 
-async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> {
-  const raw = await readRawBody(req, MAX_JSON_BYTES);
+async function readJson(req: IncomingMessage, maxBytes: number): Promise<Record<string, unknown>> {
+  const raw = await readRawBody(req, maxBytes);
   return raw ? JSON.parse(raw) : {};
 }
 
@@ -143,7 +143,12 @@ function passwordArg(body: Record<string, unknown>): string | null | undefined {
   return String(v);
 }
 
-export function createApiHandler(storage: Storage, token: string, dataDir?: string): Handler {
+export function createApiHandler(
+  storage: Storage,
+  token: string,
+  dataDir?: string,
+  maxBodyBytes: number = MAX_JSON_BYTES,
+): Handler {
   return (req, res) => {
     void (async () => {
       try {
@@ -156,7 +161,7 @@ export function createApiHandler(storage: Storage, token: string, dataDir?: stri
         }
 
         if (req.method === "POST" && path === "/api/publish") {
-          const body = await readJson(req);
+          const body = await readJson(req, maxBodyBytes);
           if (!body.title || !body.type) {
             return sendError(req, res, 400, "bad_request", "type and title are required");
           }
@@ -174,7 +179,7 @@ export function createApiHandler(storage: Storage, token: string, dataDir?: stri
         const protectMatch = path.match(/^\/api\/artifacts\/([^/]+)\/protect$/);
         if (req.method === "POST" && protectMatch) {
           const id = decodeURIComponent(protectMatch[1]);
-          const body = await readJson(req);
+          const body = await readJson(req, maxBodyBytes);
           const result = await storage.setProtection(id, {
             password: passwordArg(body),
             ttlSeconds: ttlArg(body),
@@ -185,7 +190,7 @@ export function createApiHandler(storage: Storage, token: string, dataDir?: stri
         const artifactMatch = path.match(/^\/api\/artifacts\/([^/]+)$/);
         if (req.method === "PUT" && artifactMatch) {
           const id = decodeURIComponent(artifactMatch[1]);
-          const body = await readJson(req);
+          const body = await readJson(req, maxBodyBytes);
           await storage.update(id, { html: String(body.html ?? ""), title: body.title ? String(body.title) : undefined });
           return sendJson(req, res, 200, { id });
         }
@@ -372,7 +377,7 @@ export function start(config: HostConfig): { view: Server; api: Server } {
   const view = createServer(
     createViewHandler(storage, config.dataDir, { cookieSecret, cookieSecure: config.cookieSecure }),
   );
-  const api = createServer(createApiHandler(storage, config.token, config.dataDir));
+  const api = createServer(createApiHandler(storage, config.token, config.dataDir, config.maxBodyBytes));
 
   const reaper = setInterval(() => {
     storage.deleteExpired().catch((err) => console.error("reaper failed:", (err as Error).message));

@@ -63,6 +63,35 @@ the `Publisher`:
 5. Store the resulting single `content` string via the existing
    `Publisher.publish` / `Publisher.update` path — no adapter changes.
 
+The limits are env-tunable on the MCP process (parity with the other
+`PAGEDROP_*` knobs), defaulting to `DEFAULT_INLINE_IMAGE_LIMITS`:
+
+- `PAGEDROP_MAX_IMAGES` (default 20)
+- `PAGEDROP_MAX_IMAGE_BYTES` (default 2 MB, per-image decoded)
+- `PAGEDROP_MAX_TOTAL_IMAGE_BYTES` (default 24 MB)
+
+## Cross-backend request-body caps
+
+Inlining produces a single `content` blob that is base64-inflated (~4/3) versus
+the decoded image bytes: the 24 MB total default becomes ~32 MB of HTML. That
+blob has to survive the transport of whichever backend is selected, so the
+backends' request-body caps must be kept in step with the image limits:
+
+- **Self-hosted (`kubernetes`).** The host write API previously hard-capped
+  request bodies at 1 MB (`MAX_JSON_BYTES`), which would reject any realistic
+  inlined page with HTTP 400. The cap is now configurable via
+  `PAGEDROP_HOST_MAX_BODY_BYTES` and defaults to 40 MiB — enough to carry the
+  default image total with headroom. When the token-gated API is exposed via an
+  ingress, its proxy body-size limit (e.g. nginx `proxy-body-size`, 1 MB by
+  default) must also be raised to match; the Helm chart documents this on
+  `apiIngress.annotations`.
+- **`appsscript`.** The whole blob is POSTed to the Apps Script web app as one
+  JSON body; Google platform quotas (web-app payload / `DriveApp` blob ceilings)
+  apply and are outside our control. Multi-MB inlined pages are near those soft
+  limits — prefer the self-hosted or `gcp` backend for image-heavy pages.
+- **`gcp`.** Drive uploads stream the HTML, so the base64-inflated blob is not a
+  practical concern.
+
 ## Structure
 
 - New pure helper `src/core/inline-images.ts`:
@@ -76,8 +105,17 @@ the `Publisher`:
 - `src/mcp/tools.ts`: extend the zod input schemas for the three tools with the
   optional `images` array.
 - `src/core/types.ts`: `ImageInput` type; `Limits` (or module constants).
+- `src/index.ts`: read the env-tunable image limits and pass them to
+  `PublishService`.
+- `src/host/config.ts` + `src/host/server.ts`: make the write-API body cap
+  configurable (`PAGEDROP_HOST_MAX_BODY_BYTES`, default 40 MiB) so the
+  self-hosted backend accepts inlined-image pages.
+- `deploy/helm/pagedrop-host`: expose the body cap (`limits.maxBodyBytes`) and
+  document the matching ingress `proxy-body-size`.
 
-No changes to `src/adapters/*`, `src/host`, or the served-page path.
+No changes to `src/adapters/*` or the served-page path: the image bytes flow
+through the unchanged `Publisher.publish` / `update` path and are served
+verbatim. The only serving-side change is raising the self-hosted body cap.
 
 ## Testing
 
