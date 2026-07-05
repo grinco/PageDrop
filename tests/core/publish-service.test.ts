@@ -34,6 +34,37 @@ describe("PublishService", () => {
     expect(fake.updated[0]).toEqual({ id: "file-9", content: "<h1>new</h1>" });
   });
 
+  it("inlines images into a published page (no cid: left in stored content)", async () => {
+    const fake = new FakePublisher();
+    const svc = new PublishService(fake);
+    const png =
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+    await svc.publishPage("P", '<h1>x</h1><img src="cid:hero">', undefined, { images: [{ id: "hero", dataUri: png }] });
+    const content = fake.published[0].artifact.content;
+    expect(content).toContain(`src="${png}"`);
+    expect(content).not.toContain("cid:");
+  });
+
+  it("inlines images on republish too", async () => {
+    const fake = new FakePublisher();
+    const svc = new PublishService(fake);
+    const png =
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+    await svc.republish("file-9", '<img src="cid:a">', [{ id: "a", dataUri: png }]);
+    expect(fake.updated[0].content).toBe(`<img src="${png}">`);
+  });
+
+  it("rejects a page whose HTML references an unknown image id", async () => {
+    const svc = new PublishService(new FakePublisher());
+    const png =
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+    await expect(
+      svc.publishPage("P", '<img src="cid:present"><img src="cid:missing">', undefined, {
+        images: [{ id: "present", dataUri: png }],
+      }),
+    ).rejects.toThrow(/unknown image ids: missing/);
+  });
+
   it("rejects empty search query", async () => {
     const svc = new PublishService(new FakePublisher());
     await expect(svc.search("  ")).rejects.toThrow(/query/i);

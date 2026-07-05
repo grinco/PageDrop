@@ -40,6 +40,14 @@ export function registerTools(host: ToolHost, service: PublishService): void {
     .string()
     .optional()
     .describe("Self-hosted backend only: a password that gates viewing (min 8 chars).");
+  const images = z
+    .array(z.object({ id: z.string(), dataUri: z.string() }))
+    .optional()
+    .describe(
+      'Base64 images to inline into the HTML (page/deck only). Reference each in the HTML as ' +
+        '<img src="cid:ID">; dataUri is a self-contained "data:image/<type>;base64,<...>" string. ' +
+        "Keeps the HTML small — pass photos here instead of pasting data URIs into the html body.",
+    );
 
   host.tool(
     "pagedrop_publish_doc",
@@ -54,26 +62,29 @@ export function registerTools(host: ToolHost, service: PublishService): void {
   host.tool(
     "pagedrop_publish_page",
     "Publish a full HTML page at a shareable URL. Content must be HTML — it is served verbatim, " +
-      "not rendered. For Markdown, use pagedrop_publish_doc instead.",
-    { title: z.string(), html: z.string(), tags, ttlSeconds, password },
-    async ({ title, html, tags, ttlSeconds, password }) =>
-      text(describeResult("page", title, await service.publishPage(title, html, tags, { ttlSeconds, password }))),
+      "not rendered. For Markdown, use pagedrop_publish_doc instead. To embed photos, pass them in " +
+      'images and reference each as <img src="cid:ID"> rather than pasting base64 into the html.',
+    { title: z.string(), html: z.string(), tags, ttlSeconds, password, images },
+    async ({ title, html, tags, ttlSeconds, password, images }) =>
+      text(describeResult("page", title, await service.publishPage(title, html, tags, { ttlSeconds, password, images }))),
   );
 
   host.tool(
     "pagedrop_publish_deck",
-    "Publish an HTML/reveal.js presentation as a shareable rendered deck (with an optional native Google Slides copy).",
-    { title: z.string(), html: z.string(), tags, ttlSeconds, password },
-    async ({ title, html, tags, ttlSeconds, password }) =>
-      text(describeResult("deck", title, await service.publishDeck(title, html, tags, { ttlSeconds, password }))),
+    "Publish an HTML/reveal.js presentation as a shareable rendered deck (with an optional native Google Slides copy). " +
+      'To embed photos, pass them in images and reference each as <img src="cid:ID">.',
+    { title: z.string(), html: z.string(), tags, ttlSeconds, password, images },
+    async ({ title, html, tags, ttlSeconds, password, images }) =>
+      text(describeResult("deck", title, await service.publishDeck(title, html, tags, { ttlSeconds, password, images }))),
   );
 
   host.tool(
     "pagedrop_republish",
     "Replace the content of a previously published artifact, keeping its URL. Provide content in the " +
-      "artifact's original format — Markdown for a doc (re-rendered for you), HTML for a page or deck.",
-    { id: z.string(), html: z.string() },
-    async ({ id, html }) => text(describeResult("update", id, await service.republish(id, html))),
+      "artifact's original format — Markdown for a doc (re-rendered for you), HTML for a page or deck. " +
+      'For a page/deck, embed photos via images referenced as <img src="cid:ID">.',
+    { id: z.string(), html: z.string(), images },
+    async ({ id, html, images }) => text(describeResult("update", id, await service.republish(id, html, images))),
   );
 
   host.tool(

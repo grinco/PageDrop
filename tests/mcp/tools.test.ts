@@ -61,6 +61,20 @@ describe("registerTools", () => {
     expect(out.content[0].text).toContain("Password: river-cloud7moon.stone");
   });
 
+  it("publish_page handler passes images through and inlines them", async () => {
+    const { host, handlers } = makeHost();
+    const fake = new FakePublisher();
+    registerTools(host, new PublishService(fake));
+    const png =
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+    await handlers["pagedrop_publish_page"]({
+      title: "P",
+      html: '<img src="cid:hero">',
+      images: [{ id: "hero", dataUri: png }],
+    });
+    expect(fake.published[0].artifact.content).toBe(`<img src="${png}">`);
+  });
+
   it("publish_doc handler returns links in its text content", async () => {
     const { host, handlers } = makeHost();
     registerTools(host, new PublishService(new FakePublisher()));
