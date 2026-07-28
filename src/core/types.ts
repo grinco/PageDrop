@@ -1,6 +1,13 @@
 export type ArtifactType = "doc" | "page" | "deck";
 export type SharingScope = "domain" | "people" | "public";
 
+/**
+ * Minimum length for a user-supplied viewing password. Lives here so the MCP
+ * tool schemas and the host's own validation agree on the number; the host
+ * remains the authority (a direct API caller is checked there too).
+ */
+export const MIN_PASSWORD_LENGTH = 8;
+
 export interface Artifact {
   type: ArtifactType;
   title: string;

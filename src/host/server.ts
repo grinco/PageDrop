@@ -171,7 +171,10 @@ export function createApiHandler(
             html: String(body.html ?? ""),
             tags: Array.isArray(body.tags) ? (body.tags as string[]) : undefined,
             ttlSeconds: body.ttlSeconds === undefined ? undefined : Number(body.ttlSeconds),
-            password: body.password === undefined ? undefined : String(body.password),
+            // On publish there is nothing to clear, so an explicit null means the
+            // same as omitting the field: leave protection to the install default.
+            // (Without this, String(null) became the literal password "null".)
+            password: body.password === undefined || body.password === null ? undefined : String(body.password),
           });
           return sendJson(req, res, 201, result);
         }

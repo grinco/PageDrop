@@ -179,6 +179,39 @@ describe("storage password protection", () => {
     ).rejects.toBeInstanceOf(ValidationError);
   });
 
+  it("rejects an empty password on publish instead of treating it as 'not supplied'", async () => {
+    const s = createStorage(dir, { suffix: () => "e1" });
+    await expect(
+      s.publish({ type: "page", title: "Empty", html: "<p>x</p>", password: "" }),
+    ).rejects.toThrow(/must not be empty/);
+  });
+
+  it("rejects a whitespace-only password on publish", async () => {
+    const s = createStorage(dir, { suffix: () => "e2" });
+    await expect(
+      s.publish({ type: "page", title: "Blank", html: "<p>x</p>", password: "        " }),
+    ).rejects.toThrow(/must not be empty/);
+  });
+
+  it("does not silently lock a page when an empty password meets defaultProtect", async () => {
+    // The bug: "" fell through to the auto-generate branch, so a caller asking
+    // for no password got a locked page with a server-chosen passphrase.
+    const s = createStorage(dir, {
+      suffix: () => "e3", defaultProtect: true, genPassword: () => "river-cloud7moon.stone",
+    });
+    await expect(
+      s.publish({ type: "page", title: "Empty", html: "<p>x</p>", password: "" }),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it("rejects an empty password on setProtection rather than silently doing nothing", async () => {
+    const s = createStorage(dir, { suffix: () => "e4" });
+    const { id } = await s.publish({ type: "page", title: "Mut", html: "<p>x</p>", password: "letmein12" });
+    await expect(s.setProtection(id, { password: "" })).rejects.toThrow(/must not be empty/);
+    // The existing password is untouched by the rejected call.
+    expect((await s.getMeta(id))?.password).toBeDefined();
+  });
+
   it("auto-generates and returns a passphrase when defaultProtect is on", async () => {
     const s = createStorage(dir, {
       suffix: () => "p3", defaultProtect: true, genPassword: () => "river-cloud7moon.stone",

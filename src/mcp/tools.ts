@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { PublishResult } from "../core/types";
+import { MIN_PASSWORD_LENGTH, type PublishResult } from "../core/types";
 import type { PublishService } from "../core/publish-service";
 
 export interface ToolHost {
@@ -36,10 +36,20 @@ export function registerTools(host: ToolHost, service: PublishService): void {
     .number()
     .optional()
     .describe("Self-hosted backend only: seconds until the artifact expires; 0 = never (overrides the server default).");
+  // An empty string is rejected rather than accepted-and-ignored: the host reads
+  // a missing password as "use the install default", which on a default-protect
+  // install means generating one and locking the page.
+  const TOO_SHORT = `password must be at least ${MIN_PASSWORD_LENGTH} characters — omit this field entirely if you want no password`;
   const password = z
     .string()
+    .min(MIN_PASSWORD_LENGTH, TOO_SHORT)
     .optional()
-    .describe("Self-hosted backend only: a password that gates viewing (min 8 chars).");
+    .describe(
+      `Self-hosted backend only: a password viewers must enter to see the page (min ${MIN_PASSWORD_LENGTH} chars). ` +
+        "Omit it for no password — do NOT pass an empty string. On a default-protect install, omitting it " +
+        "means the server generates a memorable passphrase and returns it in the result. " +
+        "A password can also be added, changed, or removed later with pagedrop_protect.",
+    );
   const images = z
     .array(z.object({ id: z.string(), dataUri: z.string() }))
     .optional()
@@ -53,7 +63,8 @@ export function registerTools(host: ToolHost, service: PublishService): void {
     "pagedrop_publish_doc",
     "Publish a Markdown document as a shareable page. The Markdown is rendered to HTML for you — " +
       "use this for any Markdown/prose content (do NOT pass Markdown to publish_page/publish_deck, " +
-      "which serve their input verbatim as HTML).",
+      "which serve their input verbatim as HTML). Optionally password-protect it here, or change " +
+      "the password later with pagedrop_protect.",
     { title: z.string(), markdown: z.string(), tags, ttlSeconds, password },
     async ({ title, markdown, tags, ttlSeconds, password }) =>
       text(describeResult("document", title, await service.publishDoc(title, markdown, tags, { ttlSeconds, password }))),
@@ -63,7 +74,8 @@ export function registerTools(host: ToolHost, service: PublishService): void {
     "pagedrop_publish_page",
     "Publish a full HTML page at a shareable URL. Content must be HTML — it is served verbatim, " +
       "not rendered. For Markdown, use pagedrop_publish_doc instead. To embed photos, pass them in " +
-      'images and reference each as <img src="cid:ID"> rather than pasting base64 into the html.',
+      'images and reference each as <img src="cid:ID"> rather than pasting base64 into the html. ' +
+      "Optionally password-protect it here, or change the password later with pagedrop_protect.",
     { title: z.string(), html: z.string(), tags, ttlSeconds, password, images },
     async ({ title, html, tags, ttlSeconds, password, images }) =>
       text(describeResult("page", title, await service.publishPage(title, html, tags, { ttlSeconds, password, images }))),
@@ -72,7 +84,8 @@ export function registerTools(host: ToolHost, service: PublishService): void {
   host.tool(
     "pagedrop_publish_deck",
     "Publish an HTML/reveal.js presentation as a shareable rendered deck (with an optional native Google Slides copy). " +
-      'To embed photos, pass them in images and reference each as <img src="cid:ID">.',
+      'To embed photos, pass them in images and reference each as <img src="cid:ID">. ' +
+      "Optionally password-protect it here, or change the password later with pagedrop_protect.",
     { title: z.string(), html: z.string(), tags, ttlSeconds, password, images },
     async ({ title, html, tags, ttlSeconds, password, images }) =>
       text(describeResult("deck", title, await service.publishDeck(title, html, tags, { ttlSeconds, password, images }))),
@@ -99,12 +112,24 @@ export function registerTools(host: ToolHost, service: PublishService): void {
 
   host.tool(
     "pagedrop_protect",
-    "Set or clear a viewing password and/or expiry on an existing artifact (self-hosted backend). " +
-      "Pass null to clear a field; omit it to leave it unchanged. With no password on a default-protect " +
-      "install, a memorable one is generated and returned.",
+    "Change the password on an already-published PageDrop page, doc, or deck — set one, replace the " +
+      "existing one, or remove it — and/or change its expiry. This is the tool for any request to " +
+      "password-protect, lock, unlock, secure, change/reset the password of, un-protect, or set an " +
+      "expiry/TTL on something already published to PageDrop (self-hosted backend). Pass null to " +
+      "remove a field; omit it to leave it unchanged. On a default-protect install, omitting password " +
+      "on a currently unprotected artifact generates a memorable one and returns it. Use pagedrop_list " +
+      "first if you need the artifact's id.",
     {
-      id: z.string(),
-      password: z.string().nullable().optional().describe("String to set, null to clear, omit to leave unchanged."),
+      id: z.string().describe("Artifact id (not the full URL) — from pagedrop_list or a publish result."),
+      password: z
+        .string()
+        .min(MIN_PASSWORD_LENGTH, TOO_SHORT)
+        .nullable()
+        .optional()
+        .describe(
+          `New password to require from viewers (min ${MIN_PASSWORD_LENGTH} chars); null removes password ` +
+            "protection entirely; omit to leave it unchanged. An empty string is not accepted — use null to remove.",
+        ),
       ttlSeconds: z.number().nullable().optional().describe("Seconds until expiry; null/0 to clear, omit to leave unchanged."),
     },
     async ({ id, password, ttlSeconds }) => {

@@ -104,6 +104,35 @@ describe("host write API", () => {
     expect(negTtl.status).toBe(400);
   });
 
+  it("400s on an empty password rather than publishing something unexpected", async () => {
+    const res = await fetch(`${base}/api/publish`, {
+      method: "POST", headers: auth,
+      body: JSON.stringify({ type: "page", title: "E", html: "<p>x</p>", password: "" }),
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error.message).toMatch(/must not be empty/);
+  });
+
+  it("treats a null password on publish as 'not supplied', not as the string 'null'", async () => {
+    const res = await fetch(`${base}/api/publish`, {
+      method: "POST", headers: auth,
+      body: JSON.stringify({ type: "page", title: "N", html: "<p>x</p>", password: null }),
+    });
+    expect(res.status).toBe(201);
+    const list = await (await fetch(`${base}/api/artifacts`, { headers: auth })).json();
+    expect(list.items[0].protected).toBe(false);
+  });
+
+  it("400s on an empty password sent to /protect", async () => {
+    const { id } = await (await fetch(`${base}/api/publish`, {
+      method: "POST", headers: auth, body: JSON.stringify({ type: "page", title: "P", html: "<p>x</p>" }),
+    })).json();
+    const res = await fetch(`${base}/api/artifacts/${id}/protect`, {
+      method: "POST", headers: auth, body: JSON.stringify({ password: "" }),
+    });
+    expect(res.status).toBe(400);
+  });
+
   it("never leaks the password hash; exposes protected + expiresAt in listings", async () => {
     await fetch(`${base}/api/publish`, {
       method: "POST", headers: auth,

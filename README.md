@@ -23,9 +23,9 @@ PageDrop exposes eight MCP tools:
 - **`pagedrop_republish(id, html)`** — replaces the HTML of a previously
   published page or deck while keeping its existing URL.
 - **`pagedrop_delete(id)`** — permanently deletes a published artifact.
-- **`pagedrop_protect(id, password?, ttlSeconds?)`** — sets or clears a viewing
-  password and/or expiry on an existing artifact. Pass `null` to clear a field,
-  omit it to leave it unchanged.
+- **`pagedrop_protect(id, password?, ttlSeconds?)`** — changes the viewing password
+  (set, replace, or remove it) and/or the expiry on an already-published artifact.
+  Pass `null` to remove a field, omit it to leave it unchanged.
 - **`pagedrop_list()`** — lists everything published to PageDrop so far.
 - **`pagedrop_search(query)`** — searches published artifacts by title or
   content.
@@ -36,6 +36,13 @@ PageDrop exposes eight MCP tools:
 > reject `ttlSeconds`/`password` and `pagedrop_delete`/`pagedrop_protect` with a
 > clear "unsupported on this backend" error. `ttlSeconds: 0` means "never expires"
 > (and overrides the server's default TTL); passwords must be at least 8 characters.
+>
+> **To publish without a password, omit `password` entirely — an empty string is
+> rejected, not read as "no password".** A missing `password` means "use the install
+> default", and on a `PAGEDROP_DEFAULT_PROTECT=true` host that default is to generate
+> a passphrase and gate the page; letting `""` mean the same thing silently locked
+> pages their author meant to leave open. To remove protection from an existing
+> artifact, call `pagedrop_protect` with `password: null`.
 
 ## Backends
 
