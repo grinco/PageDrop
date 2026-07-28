@@ -6,13 +6,17 @@ import { FakePublisher } from "../fakes/fake-publisher";
 function makeHost() {
   const names: string[] = [];
   const handlers: Record<string, (args: any) => Promise<any>> = {};
+  const descriptions: Record<string, string> = {};
+  const schemas: Record<string, Record<string, any>> = {};
   const host = {
-    tool(name: string, _desc: string, _schema: Record<string, unknown>, handler: any) {
+    tool(name: string, desc: string, schema: Record<string, unknown>, handler: any) {
       names.push(name);
+      descriptions[name] = desc;
+      schemas[name] = schema;
       handlers[name] = handler;
     },
   };
-  return { host, names, handlers };
+  return { host, names, handlers, descriptions, schemas };
 }
 
 describe("registerTools", () => {
@@ -50,6 +54,44 @@ describe("registerTools", () => {
     const out = await handlers["pagedrop_protect"]({ id: "file-9" });
     expect(fake.protection[0].id).toBe("file-9");
     expect(out.content[0].text).toContain("river-cloud7moon.stone");
+  });
+
+  it("rejects an empty password at the schema boundary on every publish tool", () => {
+    const { host, schemas } = makeHost();
+    registerTools(host, new PublishService(new FakePublisher()));
+    for (const tool of ["pagedrop_publish_doc", "pagedrop_publish_page", "pagedrop_publish_deck"]) {
+      const field = schemas[tool].password;
+      expect(field.safeParse("").success, `${tool} accepted ""`).toBe(false);
+      expect(field.safeParse("short").success, `${tool} accepted a short password`).toBe(false);
+      expect(field.safeParse("letmein12").success).toBe(true);
+      expect(field.safeParse(undefined).success).toBe(true); // omitted is how you ask for no password
+    }
+  });
+
+  it("lets pagedrop_protect clear with null but rejects an empty password", () => {
+    const { host, schemas } = makeHost();
+    registerTools(host, new PublishService(new FakePublisher()));
+    const field = schemas["pagedrop_protect"].password;
+    expect(field.safeParse(null).success).toBe(true); // null clears
+    expect(field.safeParse(undefined).success).toBe(true); // omitted leaves unchanged
+    expect(field.safeParse("").success).toBe(false);
+    expect(field.safeParse("letmein12").success).toBe(true);
+  });
+
+  it("describes pagedrop_protect in the words a caller would use to change a password", () => {
+    // Agents failed to find this tool when asked to "change the password" — the
+    // name says "protect", so the description has to carry the vocabulary.
+    const { host, descriptions } = makeHost();
+    registerTools(host, new PublishService(new FakePublisher()));
+    const d = descriptions["pagedrop_protect"].toLowerCase();
+    for (const word of ["password", "change", "remove", "expiry"]) {
+      expect(d, `protect description is missing "${word}"`).toContain(word);
+    }
+    // Publishing tools should point at it, so an agent that starts from publish
+    // can still find the way to change protection later.
+    for (const tool of ["pagedrop_publish_doc", "pagedrop_publish_page", "pagedrop_publish_deck"]) {
+      expect(descriptions[tool], `${tool} does not mention pagedrop_protect`).toContain("pagedrop_protect");
+    }
   });
 
   it("publish surfaces an auto-generated password in its output", async () => {

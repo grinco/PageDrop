@@ -4,6 +4,7 @@ import { open, readFile, writeFile, rename, readdir, stat, unlink } from "node:f
 import { join } from "node:path";
 import { hashPassword, type StoredPassword } from "./password";
 import { generatePassphrase } from "./passphrase";
+import { MIN_PASSWORD_LENGTH } from "../core/types";
 
 export interface ArtifactMeta {
   id: string;
@@ -70,7 +71,7 @@ export function slug(title: string): string {
 }
 
 /** Minimum length for a user-supplied password (auto-generated ones far exceed it). */
-export const MIN_PASSWORD_LENGTH = 8;
+export { MIN_PASSWORD_LENGTH };
 
 interface Opts {
   now?: () => string;
@@ -132,6 +133,17 @@ export function createStorage(dataDir: string, opts: Opts = {}): Storage {
   }
 
   function hashSupplied(plain: string): StoredPassword {
+    // An empty (or whitespace-only) password is rejected outright rather than
+    // being read as "no password supplied". Aliasing it to "omitted" used to
+    // hand the decision to `defaultProtect`, which silently locked the page
+    // behind a server-generated passphrase — the opposite of what the caller
+    // asked for. "No password" has to be said by omitting the field.
+    if (plain.trim().length === 0) {
+      throw new ValidationError(
+        "password must not be empty — omit the field entirely for no password " +
+          "(or pass null to clear an existing one)",
+      );
+    }
     if (plain.length < MIN_PASSWORD_LENGTH) {
       throw new ValidationError(`password must be at least ${MIN_PASSWORD_LENGTH} characters`);
     }
@@ -144,7 +156,7 @@ export function createStorage(dataDir: string, opts: Opts = {}): Storage {
       // Resolve protection before reserving the id so validation errors don't leave files.
       let password: StoredPassword | undefined;
       let generated: string | undefined;
-      if (input.password !== undefined && input.password !== "") {
+      if (input.password !== undefined) {
         password = hashSupplied(input.password);
       } else if (defaultProtect) {
         generated = genPassword();
@@ -220,9 +232,9 @@ export function createStorage(dataDir: string, opts: Opts = {}): Storage {
       let generated: string | undefined;
       if (input.password === null) {
         delete meta.password;
-      } else if (input.password !== undefined && input.password !== "") {
+      } else if (input.password !== undefined) {
         meta.password = hashSupplied(input.password);
-      } else if (input.password === undefined && !meta.password && defaultProtect) {
+      } else if (!meta.password && defaultProtect) {
         generated = genPassword();
         meta.password = hashPassword(generated);
       }
